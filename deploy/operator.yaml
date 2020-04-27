@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ham-resource-discoverer
+  labels:
+    app.kubernetes.io/instance: ham-resource-discoverer
+    app.kubernetes.io/managed-by: ham-resource-discoverer
+    app.kubernetes.io/name: hybridApplication
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: ham-resource-discoverer
+  template:
+    metadata:
+      labels:
+        name: ham-resource-discoverer
+        app.kubernetes.io/instance: ham-resource-discoverer
+        app.kubernetes.io/managed-by: ham-resource-discoverer
+        app.kubernetes.io/name: hybridApplication
+      annotations:
+        productID: 0123456789abcdef0123456789abcdef
+        productName: some-name
+        productVersion: v1.0.0
+    spec:
+      serviceAccountName: ham-resource-discoverer
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - amd64
+                      - ppc64le
+                      - s390x
+      hostIPC: false
+      hostNetwork: false
+      hostPID: false
+      containers:
+        - name: ham-resource-discoverer
+          # Replace this with the built image name
+          image: REPLACE_IMAGE
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+          command:
+            - ham-resource-discoverer
+          imagePullPolicy: Always
+          env:
+            - name: CLUSTERNAME
+              value: placeholder
+            - name: CLUSTERNAMESPACE
+              value: placeholder
+            - name: WATCH_NAMESPACE
+              value: ""
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "ham-resource-discoverer"
+          livenessProbe:
+            exec:
+              command:
+                - ls
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          readinessProbe:
+            exec:
+              command:
+                - ls
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          resources:
+            limits:
+              cpu: 100m
+              memory: 512Mi
+            requests:
+              cpu: 25m
+              memory: 64Mi
