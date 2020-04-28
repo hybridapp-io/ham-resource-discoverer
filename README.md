@@ -5,7 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/IBM/ham-resource-discoverer)](https://goreportcard.com/report/github.com/IBM/ham-resource-discoverer)
 [![Code Coverage](https://codecov.io/gh/IBM/ham-resource-discoverer/branch/master/graphs/badge.svg?branch=master)](https://codecov.io/gh/IBM/ham-resource-discoverer?branch=master)
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
-[![Image](https://quay.io/repository/multicloudlab/ham-resource-discoverer-amd64/status)](https://quay.io/repository/multicloudlab/ham-resource-discoverer-amd64?tab=tags)
+[![Image](https://quay.io/repository/multicloudlab/deployer-operator-amd64/status)](https://quay.io/repository/multicloudlab/deployer-operator-amd64?tab=tags)
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -197,9 +197,3 @@ Go to [HybridDeployable repository](https://github.com/IBM/hybriddeployable-oper
 ### Troubleshooting
 
 Please refer to [Trouble shooting documentation](docs/trouble_shooting.md) for further info.
-
-## Hybrid Application References
-
-- [HybridApplication Operater](https://github.com/IBM/hybridapplication-operator)
-- [HybridDeployable Operator](https://github.com/IBM/hybriddeployable-operator)
-- [Deployer Operator](https://github.com/IBM/ham-resource-discoverer)
