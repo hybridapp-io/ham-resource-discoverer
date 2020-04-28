@@ -1,0 +1,73 @@
+// Copyright 2019 The Kubernetes Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package utils
+
+import (
+	"regexp"
+	"strings"
+
+	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
+)
+
+func IsInClusterDeployer(deployer *corev1alpha1.Deployer) bool {
+	incluster := true
+
+	annotations := deployer.GetAnnotations()
+	if annotations != nil {
+		if in, ok := annotations[corev1alpha1.DeployerInCluster]; ok && in == "false" {
+			incluster = false
+		}
+	}
+
+	return incluster
+}
+
+func SetInClusterDeployer(deployer *corev1alpha1.Deployer) {
+	annotations := deployer.GetAnnotations()
+	annotations[corev1alpha1.DeployerInCluster] = "true"
+	deployer.SetAnnotations(annotations)
+}
+
+func SetRemoteDeployer(deployer *corev1alpha1.Deployer) {
+	annotations := deployer.GetAnnotations()
+	annotations[corev1alpha1.DeployerInCluster] = "false"
+	deployer.SetAnnotations(annotations)
+}
+
+// StripVersion removes the version part of a GV
+func StripVersion(gv string) string {
+	if gv == "" {
+		return gv
+	}
+
+	re := regexp.MustCompile(`^[vV][0-9].*`)
+	// If it begins with only version, (group is nil), return empty string which maps to core group
+	if re.MatchString(gv) {
+		return ""
+	}
+
+	return strings.Split(gv, "/")[0]
+}
+
+func StripGroup(gv string) string {
+
+	re := regexp.MustCompile(`^[vV][0-9].*`)
+	// If it begins with only version, (group is nil), return empty string which maps to core group
+	if re.MatchString(gv) {
+		return gv
+	}
+
+	return strings.Split(gv, "/")[1]
+}
