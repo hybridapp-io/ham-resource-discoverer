@@ -3,29 +3,27 @@ module github.com/hybridapp-io/ham-resource-discoverer
 go 1.13
 
 require (
-	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/kubernetes-sigs/application v0.8.1
 	github.com/onsi/gomega v1.9.0
 	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200409001040-158722845851
-	github.com/open-cluster-management/multicloud-operators-placementrule v0.0.0-20200409002246-5a52c406aebc // indirect
 	github.com/open-cluster-management/multicloud-operators-subscription v0.0.0-20200427133526-eb3986b41290
-	github.com/operator-framework/operator-sdk v0.16.0
+	github.com/operator-framework/operator-sdk v0.17.0
 	github.com/spf13/pflag v1.0.5
-	k8s.io/api v0.0.0
-	k8s.io/apimachinery v0.0.0
+	k8s.io/api v0.17.4
+	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
-	sigs.k8s.io/controller-runtime v0.4.0
+	sigs.k8s.io/controller-runtime v0.5.2
 )
 
 // Pinned to kubernetes-1.16.2
 replace (
-	k8s.io/api => k8s.io/api v0.0.0-20191016110408-35e52d86657a
+	k8s.io/api => k8s.io/api v0.17.4
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20191016113550-5357c4baaf65
-	k8s.io/apimachinery => k8s.io/apimachinery v0.0.0-20191004115801-a2eda9f80ab8
+	k8s.io/apimachinery => k8s.io/apimachinery v0.17.4
 	k8s.io/apiserver => k8s.io/apiserver v0.0.0-20191016112112-5190913f932d
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.0.0-20191016114015-74ad18325ed5
-	k8s.io/client-go => k8s.io/client-go v0.0.0-20191016111102-bec269661e48
+	k8s.io/client-go => k8s.io/client-go v0.17.4
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.0.0-20191016115326-20453efc2458
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.0.0-20191016115129-c07a134afb42
 	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20191004115455-8e001e5d1894
@@ -45,4 +43,4 @@ replace (
 
 replace github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309 // Required by Helm
 
-replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v12.2.0+incompatible
+replace github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible
