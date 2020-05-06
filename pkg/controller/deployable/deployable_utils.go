@@ -16,6 +16,7 @@ package deployable
 
 import (
 	"reflect"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -69,7 +70,7 @@ func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer
 
 	if dpl == nil {
 		dpl = &dplv1.Deployable{}
-		dpl.Name = metaobj.GetKind() + "-" + metaobj.GetNamespace() + "-" + metaobj.GetName()
+		dpl.GenerateName = strings.ToLower(metaobj.GetKind()+"-"+metaobj.GetNamespace()+"-"+metaobj.GetName()) + "-"
 		dpl.Namespace = explorer.Cluster.Namespace
 	}
 
