@@ -16,9 +16,9 @@ package deployable
 
 import (
 	"reflect"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,12 +45,7 @@ var (
 	}
 )
 
-func SyncDeployable(obj interface{}, explorer *utils.Explorer) {
-	metaobj, err := meta.Accessor(obj)
-	if err != nil {
-		klog.Error("Failed to access object metadata for sync with error: ", err)
-		return
-	}
+func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer) {
 
 	annotations := metaobj.GetAnnotations()
 	if annotations != nil {
@@ -75,7 +70,7 @@ func SyncDeployable(obj interface{}, explorer *utils.Explorer) {
 
 	if dpl == nil {
 		dpl = &dplv1.Deployable{}
-		dpl.GenerateName = genDeployableGenerateName(metaobj)
+		dpl.GenerateName = strings.ToLower(metaobj.GetKind()+"-"+metaobj.GetNamespace()+"-"+metaobj.GetName()) + "-"
 		dpl.Namespace = explorer.Cluster.Namespace
 	}
 
@@ -84,7 +79,7 @@ func SyncDeployable(obj interface{}, explorer *utils.Explorer) {
 	}
 }
 
-func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj metav1.Object, explorer *utils.Explorer) error {
+func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured, explorer *utils.Explorer) error {
 	refreshedDpl := prepareDeployable(dpl, metaobj, explorer)
 
 	var err error
@@ -110,18 +105,32 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj metav1.Object, exp
 		uc.SetUnstructuredContent(ucContent)
 		uc.SetGroupVersionKind(deployableGVK)
 		_, err = explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(refreshedDpl.Namespace).Create(uc, metav1.CreateOptions{})
+		if err != nil {
+			klog.Error("Failed to sync deployable ", dpl.Namespace+"/"+dpl.Name)
+			return err
+		}
 	} else if !reflect.DeepEqual(refreshedDpl, dpl) {
 		// avoid expensive reconciliation logic if no changes in dpl structure
+		uc, err := explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(refreshedDpl.Namespace).Get(refreshedDpl.Name, metav1.GetOptions{})
+
+		if err != nil {
+			klog.Error("Failed to retrieve deployable from hub ", refreshedDpl.Namespace+"/"+refreshedDpl.Name)
+			return err
+		}
+		var resVersion = uc.GetResourceVersion()
 		ucContent, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(refreshedDpl)
-		uc := &unstructured.Unstructured{}
+
 		uc.SetUnstructuredContent(ucContent)
+		uc.SetResourceVersion(resVersion)
 		uc.SetGroupVersionKind(deployableGVK)
 		_, err = explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(refreshedDpl.Namespace).Update(uc, metav1.UpdateOptions{})
-	}
+		if err != nil {
+			klog.Error("Failed to sync deployable ", dpl.Namespace+"/"+dpl.Name)
+			return err
+		}
 
-	if err != nil {
-		klog.Error("Failed to sync object deployable with error: ", err)
-		return err
+	} else {
+		klog.V(packageInfoLogLevel).Info("Skipping deployable ", dpl.Namespace+"/"+dpl.Name, ". No changes detected")
 	}
 
 	klog.V(packageInfoLogLevel).Info("Successfully synched deployable for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
@@ -129,12 +138,17 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj metav1.Object, exp
 	return nil
 }
 
-func patchObject(dpl *dplv1.Deployable, metaobj metav1.Object, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
-	rtobj := metaobj.(runtime.Object)
-
-	klog.V(5).Info("Patching meta object:", metaobj, " covert to runtime object:", rtobj)
-
-	objgvr := explorer.GVKGVRMap[rtobj.GetObjectKind().GroupVersionKind()]
+func patchObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
+	// if the object is controlled by other deployable, do not change its ownership
+	if hostingAnnotation, ok := (metaobj.GetAnnotations()[dplv1.AnnotationHosting]); ok {
+		var owner = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
+		if hostingAnnotation != owner {
+			klog.V(packageInfoLogLevel).Info("Not changing the ownership of ", metaobj.GetNamespace()+"/"+metaobj.GetName(),
+				" as it is already owned by deployable ", owner)
+			return metaobj, nil
+		}
+	}
+	objgvr := explorer.GVKGVRMap[metaobj.GroupVersionKind()]
 
 	ucobj, err := explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Get(metaobj.GetName(), metav1.GetOptions{})
 	if err != nil {
@@ -164,10 +178,6 @@ func patchObject(dpl *dplv1.Deployable, metaobj metav1.Object, explorer *utils.E
 	_, err = explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Update(ucobj, metav1.UpdateOptions{})
 
 	return ucobj, err
-}
-
-func genDeployableGenerateName(obj metav1.Object) string {
-	return obj.GetName() + "-"
 }
 
 func locateDeployableForObject(metaobj metav1.Object, explorer *utils.Explorer) (*dplv1.Deployable, error) {
@@ -289,7 +299,7 @@ func prepareTemplate(metaobj metav1.Object) {
 	}
 }
 
-func prepareDeployable(deployable *dplv1.Deployable, metaobj metav1.Object, explorer *utils.Explorer) *dplv1.Deployable {
+func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstructured, explorer *utils.Explorer) *dplv1.Deployable {
 	dpl := deployable.DeepCopy()
 
 	labels := dpl.GetLabels()
