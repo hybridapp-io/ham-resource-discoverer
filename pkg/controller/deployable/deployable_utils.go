@@ -45,7 +45,7 @@ var (
 	}
 )
 
-func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer) {
+func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer) error {
 
 	annotations := metaobj.GetAnnotations()
 	if annotations != nil {
@@ -58,14 +58,14 @@ func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer
 
 		if matched {
 			klog.Info("Ignore object:", metaobj.GetNamespace(), "/", metaobj.GetName())
-			return
+			return nil
 		}
 	}
 
 	dpl, err := locateDeployableForObject(metaobj, explorer)
 	if err != nil {
 		klog.Error("Failed to locate deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName(), " with error: ", err)
-		return
+		return err
 	}
 
 	if dpl == nil {
@@ -76,7 +76,9 @@ func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer
 
 	if err = updateDeployableAndObject(dpl, metaobj, explorer); err != nil {
 		klog.Error("Failed to update deployable :", metaobj.GetNamespace(), "/", metaobj.GetName()+" with error: ", err)
+		return err
 	}
+	return nil
 }
 
 func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured, explorer *utils.Explorer) error {
@@ -133,7 +135,8 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 		klog.V(packageInfoLogLevel).Info("Skipping deployable ", dpl.Namespace+"/"+dpl.Name, ". No changes detected")
 	}
 
-	klog.V(packageInfoLogLevel).Info("Successfully synched deployable for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
+	klog.V(packageInfoLogLevel).Info("Successfully synched deployable ", refreshedDpl.Namespace+"/"+refreshedDpl.Name,
+		" for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 
 	return nil
 }
@@ -144,7 +147,7 @@ func patchObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured, expl
 		var owner = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
 		if hostingAnnotation != owner {
 			klog.V(packageInfoLogLevel).Info("Not changing the ownership of ", metaobj.GetNamespace()+"/"+metaobj.GetName(),
-				" as it is already owned by deployable ", owner)
+				" to ", owner, " as it is already owned by deployable ", hostingAnnotation)
 			return metaobj, nil
 		}
 	}

@@ -18,7 +18,6 @@ import (
 	"time"
 
 	sigappv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -100,6 +99,15 @@ type ReconcileApplicationInterface interface {
 	stop()
 }
 
+func (r *ReconcileApplication) isAppDiscoveryEnabled(app *unstructured.Unstructured) bool {
+	if _, enabled := app.GetAnnotations()[corev1alpha1.AnnotationDiscovered]; !enabled ||
+		app.GetAnnotations()[corev1alpha1.AnnotationDiscovered] != corev1alpha1.DiscoveryEnabled {
+		return false
+	}
+
+	return true
+}
+
 func (r *ReconcileApplication) start() {
 	r.stop()
 
@@ -141,44 +149,33 @@ func (r *ReconcileApplication) stop() {
 }
 
 func (r *ReconcileApplication) syncCreateApplication(newObj interface{}) {
-	metaobj, err := meta.Accessor(newObj)
-	if err != nil {
-		klog.Error("Failed to access object metadata for sync with error: ", err)
-		return
+	if err := r.syncApplication(newObj.(*unstructured.Unstructured)); err != nil {
+		klog.Error("Could not reconcile application ", newObj.(*unstructured.Unstructured).GetName(), " on create with error ", err)
 	}
-
-	r.syncApplication(metaobj)
 }
 
 func (r *ReconcileApplication) syncUpdateApplication(oldObj, newObj interface{}) {
-	metaobj, err := meta.Accessor(newObj)
-	if err != nil {
-		klog.Error("Failed to access object metadata for sync with error: ", err)
-		return
+	if err := r.syncApplication(newObj.(*unstructured.Unstructured)); err != nil {
+		klog.Error("Could not reconcile application ", newObj.(*unstructured.Unstructured).GetName(), " on update with error ", err)
 	}
-
-	r.syncApplication(metaobj)
 }
 
 func (r *ReconcileApplication) syncRemoveApplication(oldObj interface{}) {
 
 }
 
-func (r *ReconcileApplication) syncApplication(obj metav1.Object) {
+func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) error {
 
-	uc, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		klog.Error("Failed to convert object to unstructured with error:", err)
-		return
+	if !r.isAppDiscoveryEnabled(obj) {
+		return nil
 	}
-
 	// convert obj to Application
 	app := &sigappv1beta1.Application{}
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(uc, app)
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, app)
 
 	if err != nil {
 		klog.Error("Failed to convert unstructured to application with error: ", err)
-		return
+		return err
 	}
 	var appComponents map[metav1.GroupKind]*unstructured.UnstructuredList = make(map[metav1.GroupKind]*unstructured.UnstructuredList)
 
@@ -202,7 +199,7 @@ func (r *ReconcileApplication) syncApplication(obj metav1.Object) {
 					}
 					if err != nil {
 						klog.Error("Failed to retrieve the list of components based on selector ")
-						return
+						return err
 					}
 					if len(objlist.Items) == 0 {
 						// we still want to create the deployables for the resources we find on managed cluster ,
@@ -221,7 +218,10 @@ func (r *ReconcileApplication) syncApplication(obj metav1.Object) {
 	for _, objlist := range appComponents {
 		for _, item := range objlist.Items {
 			klog.Info("Processing object ", item.GetName(), " in namespace ", item.GetNamespace(), " with kind ", item.GetKind())
-			deployable.SyncDeployable(&item, r.explorer)
+			if err = deployable.SyncDeployable(&item, r.explorer); err != nil {
+				klog.Error("Failed to sync deployable ", item.GetNamespace()+"/"+item.GetName(), " with error ", err)
+			}
 		}
 	}
+	return nil
 }

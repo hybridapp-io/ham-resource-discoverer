@@ -168,6 +168,8 @@ func TestApplicationDiscovery(t *testing.T) {
 		}
 	}()
 	app := mcApp.DeepCopy()
+	app.Annotations = make(map[string]string)
+	app.Annotations[corev1alpha1.AnnotationDiscovered] = corev1alpha1.DiscoveryEnabled
 	appUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(app)
 	uc = &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(appUC)
