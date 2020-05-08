@@ -36,6 +36,11 @@ var (
 	DeployerInCluster = SchemeGroupVersion.Group + "/deployer-in-cluster"
 )
 
+const (
+	// DiscoveryEnabled indicates whether the discovery is enabled for an application CR
+	DiscoveryEnabled = "true"
+)
+
 // DeployerSpec defines the desired state of Deployer
 type DeployerSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
