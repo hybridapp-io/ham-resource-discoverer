@@ -1,4 +1,7 @@
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.1-398
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.2
+
+# Update image
+RUN microdnf update -y && rm -rf /var/cache/yum
 
 LABEL   name="quay.io/hybridappio/ham-resource-discoverer" \
         vendor="IBM" \
