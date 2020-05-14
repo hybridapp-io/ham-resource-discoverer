@@ -5,7 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/hybridapp-io/ham-resource-discoverer)](https://goreportcard.com/report/github.com/hybridapp-io/ham-resource-discoverer)
 [![Code Coverage](https://codecov.io/gh/hybridapp-io/ham-resource-discoverer/branch/master/graphs/badge.svg?branch=master)](https://codecov.io/gh/hybridapp-io/ham-resource-discoverer?branch=master)
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
-[![Image](https://quay.io/repository/hybridappio/deployer-operator-amd64/status)](https://quay.io/repository/hybridappio/ham-resource-discoverer?tab=tags)
+[![Image](https://quay.io/repository/hybridappio/ham-resource-discoverer/status)](https://quay.io/repository/hybridappio/ham-resource-discoverer?tab=tags)
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
