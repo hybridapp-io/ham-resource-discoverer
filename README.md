@@ -1,11 +1,11 @@
 # Deployer Operator
 
 [![Build](http://prow.purple-chesterfield.com/badge.svg?jobs=image-ham-resource-discoverer-amd64-postsubmit)](http://prow.purple-chesterfield.com/?job=image-ham-resource-discoverer-amd64-postsubmit)
-[![GoDoc](https://godoc.org/github.com/IBM/ham-resource-discoverer?status.svg)](https://godoc.org/github.com/IBM/ham-resource-discoverer)
-[![Go Report Card](https://goreportcard.com/badge/github.com/IBM/ham-resource-discoverer)](https://goreportcard.com/report/github.com/IBM/ham-resource-discoverer)
-[![Code Coverage](https://codecov.io/gh/IBM/ham-resource-discoverer/branch/master/graphs/badge.svg?branch=master)](https://codecov.io/gh/IBM/ham-resource-discoverer?branch=master)
+[![GoDoc](https://godoc.org/github.com/hybridapp-io/ham-resource-discoverer?status.svg)](https://godoc.org/github.com/hybridapp-io/ham-resource-discoverer)
+[![Go Report Card](https://goreportcard.com/badge/github.com/hybridapp-io/ham-resource-discoverer)](https://goreportcard.com/report/github.com/hybridapp-io/ham-resource-discoverer)
+[![Code Coverage](https://codecov.io/gh/hybridapp-io/ham-resource-discoverer/branch/master/graphs/badge.svg?branch=master)](https://codecov.io/gh/hybridapp-io/ham-resource-discoverer?branch=master)
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
-[![Image](https://quay.io/repository/multicloudlab/deployer-operator-amd64/status)](https://quay.io/repository/multicloudlab/deployer-operator-amd64?tab=tags)
+[![Image](https://quay.io/repository/hybridappio/deployer-operator-amd64/status)](https://quay.io/repository/hybridappio/ham-resource-discoverer?tab=tags)
 
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
@@ -105,7 +105,7 @@ Alternatively, the operator can run locally using the operator-sdk, using the fo
         - environment variable KUBECONFIG to point to the kubeconfig to managed cluster
 
 ```shell
-cd "$GOPATH"/src/github.ibm.com/IBMPrivateCloud/ham-resource-discoverer
+cd "$GOPATH"/src/github.com/hybridapp-io/ham-resource-discoverer
 export CLUSTERNAME=toronto
 export CLUSTERNAMESPACE=toronto
 operator-sdk run --local --namespace=""

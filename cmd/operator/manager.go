@@ -50,8 +50,8 @@ const (
 // Change below variables to serve metrics on different host or port.
 var (
 	metricsHost               = ""
-	metricsPort         int32 = 8383
-	operatorMetricsPort int32 = 8686
+	metricsPort         int32 = 28383
+	operatorMetricsPort int32 = 28686
 )
 
 func printVersion() {
