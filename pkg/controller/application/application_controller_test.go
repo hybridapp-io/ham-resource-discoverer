@@ -169,7 +169,7 @@ func TestApplicationDiscovery(t *testing.T) {
 	}()
 	app := mcApp.DeepCopy()
 	app.Annotations = make(map[string]string)
-	app.Annotations[corev1alpha1.AnnotationDiscovered] = corev1alpha1.DiscoveryEnabled
+	app.Annotations[corev1alpha1.AnnotationHybridDiscovery] = corev1alpha1.HybridDiscoveryEnabled
 	appUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(app)
 	uc = &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(appUC)
@@ -198,23 +198,10 @@ func TestApplicationDiscovery(t *testing.T) {
 
 		annotations, _, _ := unstructured.NestedMap(dpl.Object, "metadata", "annotations")
 		g.Expect(annotations).To(Not(BeNil()))
-		g.Expect(annotations[corev1alpha1.AnnotationDiscovered]).To(Equal("true"))
-
-		annotations, _, _ = unstructured.NestedMap(dpl.Object, "spec", "template", "metadata", "annotations")
-		g.Expect(annotations).To(Not(BeNil()))
-		g.Expect(annotations[corev1alpha1.AnnotationDiscovered]).To(Equal("true"))
+		g.Expect(annotations[corev1alpha1.AnnotationHybridDiscovery]).To(Equal(corev1alpha1.HybridDiscoveryEnabled))
 
 		labels, _, _ := unstructured.NestedMap(dpl.Object, "spec", "template", "metadata", "labels")
 		g.Expect(labels).To(Not(BeNil()))
 		g.Expect(labels[appLabelSelector]).To(Equal(applicationName))
-
 	}
-
-	// validate annotations created on app resources on managed cluster
-	svcuc, _ := mcDynamicClient.Resource(svcGVR).Namespace(userNamespace).Get(svc.Name, metav1.GetOptions{})
-	g.Expect(svcuc.GetAnnotations()[corev1alpha1.AnnotationDiscovered]).To(Equal("true"))
-
-	stsuc, _ := mcDynamicClient.Resource(stsGVR).Namespace(userNamespace).Get(sts.Name, metav1.GetOptions{})
-	g.Expect(stsuc.GetAnnotations()[corev1alpha1.AnnotationDiscovered]).To(Equal("true"))
-
 }

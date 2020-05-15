@@ -29,7 +29,8 @@ import (
 
 	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
 
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var (
@@ -87,36 +88,36 @@ var (
 			},
 		},
 	}
-	mcSVCDeployable = &dplv1alpha1.Deployable{
+	mcSVCDeployable = &dplv1.Deployable{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcServiceName,
 			Namespace: mcName,
 			Annotations: map[string]string{
-				corev1alpha1.AnnotationDiscovered: "true",
+				corev1alpha1.AnnotationHybridDiscovery: corev1alpha1.HybridDiscoveryEnabled,
 			},
 			Labels: map[string]string{
-				corev1alpha1.AnnotationDiscovered: "true",
+				corev1alpha1.AnnotationHybridDiscovery: corev1alpha1.HybridDiscoveryEnabled,
 			},
 		},
-		Spec: dplv1alpha1.DeployableSpec{
+		Spec: dplv1.DeployableSpec{
 			Template: &runtime.RawExtension{
 				Object: mcService,
 			},
 		},
 	}
 
-	mcSTSDeployable = &dplv1alpha1.Deployable{
+	mcSTSDeployable = &dplv1.Deployable{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcSTSName,
 			Namespace: mcName,
 			Annotations: map[string]string{
-				corev1alpha1.AnnotationDiscovered: "true",
+				corev1alpha1.AnnotationHybridDiscovery: corev1alpha1.HybridDiscoveryEnabled,
 			},
 			Labels: map[string]string{
-				corev1alpha1.AnnotationDiscovered: "true",
+				corev1alpha1.AnnotationHybridDiscovery: corev1alpha1.HybridDiscoveryEnabled,
 			},
 		},
-		Spec: dplv1alpha1.DeployableSpec{
+		Spec: dplv1.DeployableSpec{
 			Template: &runtime.RawExtension{
 				Object: mcSTS,
 			},
@@ -147,8 +148,6 @@ func TestNoGroupObject(t *testing.T) {
 
 	// create the local resource
 	svc := mcService.DeepCopy()
-	svc.Annotations["test_annotation"] = trueCondition
-	svc.Labels["test_label"] = trueCondition
 
 	svcGVR := rec.explorer.GVKGVRMap[svc.GroupVersionKind()]
 	dplGVR := rec.explorer.GVKGVRMap[deployableGVK]
@@ -193,14 +192,14 @@ func TestNoGroupObject(t *testing.T) {
 	<-ds.(DeployableSync).updateCh
 
 	// validate the annotation/labels created on the MC object
-	newDpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
 	newSVC, _ := mcDynamicClient.Resource(svcGVR).Namespace(svc.Namespace).Get(svc.Name, metav1.GetOptions{})
-	g.Expect(newSVC.GetAnnotations()["test_annotation"]).To(Equal(trueCondition))
-	g.Expect(newSVC.GetLabels()["test_label"]).To(Equal(trueCondition))
-	g.Expect(newDpl.GetLabels()["test_label"]).To(Equal(trueCondition))
+	annotations := newSVC.GetAnnotations()
+	g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(dpl.Namespace + "/" + dpl.Name))
+	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
+	g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
 }
 
-func TestGroupObject(t *testing.T) {
+func TestRefreshObjectWithDiscovery(t *testing.T) {
 	g := NewWithT(t)
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
@@ -266,73 +265,227 @@ func TestGroupObject(t *testing.T) {
 	<-ds.(DeployableSync).createCh
 	<-ds.(DeployableSync).updateCh
 
-	// update the deployable and add labels and annotations
-
+	// remove the object subscription anno
 	newDpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
 	newSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
 
-	// add a new label on the sts and expect to find it on the dpl
-	labels, _, _ := unstructured.NestedStringMap(newSTS.Object, "metadata", "labels")
-	labels["test_label"] = trueCondition
-
-	if err = unstructured.SetNestedStringMap(newSTS.Object, labels, "metadata", "labels"); err != nil {
-		klog.Error(err)
-		t.Fail()
-	}
-
+	stsAnnotations := newSTS.GetAnnotations()
+	delete(stsAnnotations, dplv1.AnnotationHosting)
+	delete(stsAnnotations, subv1.AnnotationHosting)
+	delete(stsAnnotations, subv1.AnnotationSyncSource)
+	newSTS.SetAnnotations(stsAnnotations)
 	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Update(newSTS, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
-	annotations, _, _ := unstructured.NestedStringMap(newDpl.Object, "metadata", "annotations")
-	annotations["test_annotation"] = trueCondition
+	dplAnnotations := newDpl.GetAnnotations()
+	dplAnnotations[corev1alpha1.AnnotationHybridDiscovery] = corev1alpha1.HybridDiscoveryEnabled
+	newDpl.SetAnnotations(dplAnnotations)
 
-	if err = unstructured.SetNestedStringMap(newDpl.Object, annotations, "metadata", "annotations"); err != nil {
+	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Update(newDpl, metav1.UpdateOptions{}); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+	<-ds.(DeployableSync).updateCh
+
+	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
+	annotations := updatedSTS.GetAnnotations()
+	g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(dpl.Namespace + "/" + dpl.Name))
+	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
+	g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
+}
+
+func TestRefreshObjectWithoutDiscovery(t *testing.T) {
+	g := NewWithT(t)
+	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	rec, _ := newReconciler(mgr, hubClusterConfig, cluster)
+	ds := SetupDeployableSync(rec)
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	ds.start()
+	defer ds.stop()
+
+	mcDynamicClient := rec.explorer.DynamicMCClient
+	hubDynamicClient := rec.explorer.DynamicHubClient
+
+	// create the local resource
+	sts := mcSTS.DeepCopy()
+
+	stsGVR := rec.explorer.GVKGVRMap[sts.GroupVersionKind()]
+	dplGVR := rec.explorer.GVKGVRMap[deployableGVK]
+
+	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
+	uc := &unstructured.Unstructured{}
+	uc.SetUnstructuredContent(stsUC)
+
+	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
-	// update dpl label to trigger reconcile
+	defer func() {
+		if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(sts.Name, &metav1.DeleteOptions{}); err != nil {
+			klog.Error(err)
+			t.Fail()
+		}
+	}()
+
+	// create the deployable on the hub
+	dpl := mcSTSDeployable.DeepCopy()
+	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl)
+	uc = &unstructured.Unstructured{}
+	uc.SetUnstructuredContent(dplUC)
+	uc.SetGroupVersionKind(deployableGVK)
+
+	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+
+	defer func() {
+		if err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Delete(dpl.Name, &metav1.DeleteOptions{}); err != nil {
+			klog.Error(err)
+			t.Fail()
+		}
+	}()
+
+	// wait for the deployable sync to come through on hub
+	<-ds.(DeployableSync).createCh
+	<-ds.(DeployableSync).updateCh
+
+	// remove the object subscription anno
+	newDpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
+	newSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
+
+	stsAnnotations := newSTS.GetAnnotations()
+	delete(stsAnnotations, dplv1.AnnotationHosting)
+	delete(stsAnnotations, subv1.AnnotationHosting)
+	delete(stsAnnotations, subv1.AnnotationSyncSource)
+	newSTS.SetAnnotations(stsAnnotations)
+	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Update(newSTS, metav1.UpdateOptions{}); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+
+	dplAnnotations := newDpl.GetAnnotations()
+	newDpl.SetAnnotations(dplAnnotations)
+
 	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Update(newDpl, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
-	<-ds.(DeployableSync).updateCh
-
-	updatedDpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
-
-	// validate the annotation/labels created on the MC object
-	g.Expect(updatedDpl.GetAnnotations()["test_annotation"]).To(Equal(trueCondition))
-	g.Expect(updatedDpl.GetLabels()["test_label"]).To(Equal(trueCondition))
-
-	// turn off the hybrid discovered flag and make sure reconciliation does not happen (test_new_label will not be added to dpl)
+	// discovery flag has been turned into completed from enabled, so no changes on the resource expected
 	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
-	updatedSTS.GetLabels()["test_new_label"] = trueCondition
+	annotations := updatedSTS.GetAnnotations()
+	g.Expect(annotations[dplv1.AnnotationHosting]).To(BeEmpty())
+	g.Expect(annotations[subv1.AnnotationHosting]).To(BeEmpty())
+	g.Expect(annotations[subv1.AnnotationSyncSource]).To(BeEmpty())
+}
 
-	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Update(updatedSTS, metav1.UpdateOptions{}); err != nil {
+func TestRefreshOwnershipChange(t *testing.T) {
+	g := NewWithT(t)
+	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	rec, _ := newReconciler(mgr, hubClusterConfig, cluster)
+	ds := SetupDeployableSync(rec)
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	ds.start()
+	defer ds.stop()
+
+	mcDynamicClient := rec.explorer.DynamicMCClient
+	hubDynamicClient := rec.explorer.DynamicHubClient
+
+	// create the local resource
+	sts := mcSTS.DeepCopy()
+
+	stsGVR := rec.explorer.GVKGVRMap[sts.GroupVersionKind()]
+	dplGVR := rec.explorer.GVKGVRMap[deployableGVK]
+
+	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
+	uc := &unstructured.Unstructured{}
+	uc.SetUnstructuredContent(stsUC)
+
+	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
-	annotations, _, _ = unstructured.NestedStringMap(updatedDpl.Object, "metadata", "annotations")
-	delete(annotations, corev1alpha1.AnnotationDiscovered)
+	defer func() {
+		if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(sts.Name, &metav1.DeleteOptions{}); err != nil {
+			klog.Error(err)
+			t.Fail()
+		}
+	}()
 
-	if err = unstructured.SetNestedStringMap(updatedDpl.Object, annotations, "metadata", "annotations"); err != nil {
+	// create the deployable on the hub
+	dpl1 := mcSTSDeployable.DeepCopy()
+	dpl1UC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl1)
+	uc1 := &unstructured.Unstructured{}
+	uc1.SetUnstructuredContent(dpl1UC)
+	uc1.SetGroupVersionKind(deployableGVK)
+
+	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl1.Namespace).Create(uc1, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
-	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Update(updatedDpl, metav1.UpdateOptions{}); err != nil {
-		klog.Error(err)
-		t.Fail()
-	}
+	defer func() {
+		if err = hubDynamicClient.Resource(dplGVR).Namespace(dpl1.Namespace).Delete(dpl1.Name, &metav1.DeleteOptions{}); err != nil {
+			klog.Error(err)
+			t.Fail()
+		}
+	}()
 
+	// wait for the deployable sync to come through on hub
+	<-ds.(DeployableSync).createCh
 	<-ds.(DeployableSync).updateCh
 
-	updatedDpl, _ = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
-	g.Expect(updatedDpl.GetLabels()).To(Not(ContainElement("test_new_label")))
+	// create a new deployable pointing to the same resource
+	dpl2 := mcSTSDeployable.DeepCopy()
+	dpl2.SetName(mcSTSName + "2")
+	dpl2UC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl2)
+	uc2 := &unstructured.Unstructured{}
+	uc2.SetUnstructuredContent(dpl2UC)
+	uc2.SetGroupVersionKind(deployableGVK)
+
+	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl2.Namespace).Create(uc2, metav1.CreateOptions{}); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+
+	defer func() {
+		if err = hubDynamicClient.Resource(dplGVR).Namespace(dpl2.Namespace).Delete(dpl2.Name, &metav1.DeleteOptions{}); err != nil {
+			klog.Error(err)
+			t.Fail()
+		}
+	}()
+
+	// wait for the deployable sync to come through on hub
+	<-ds.(DeployableSync).createCh
+
+	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
+	annotations := updatedSTS.GetAnnotations()
+	g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(dpl1.Namespace + "/" + dpl1.Name))
+	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
+	g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
 }
 
 func TestDeployableCleanup(t *testing.T) {
@@ -373,7 +526,6 @@ func TestDeployableCleanup(t *testing.T) {
 
 	// create the deployable on the hub
 	dplObj := mcSTSDeployable.DeepCopy()
-	dplObj.GetAnnotations()["test_annotation"] = trueCondition
 	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dplObj)
 	uc = &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(dplUC)
@@ -395,23 +547,17 @@ func TestDeployableCleanup(t *testing.T) {
 	}
 
 	// trigger reconciliation on deployable and make sure it gets cleaned up
-	dpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
-	annotations, _, _ := unstructured.NestedStringMap(dpl.Object, "metadata", "annotations")
-	delete(annotations, "test_annotation")
+	newDpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
+	dplAnnotations := newDpl.GetAnnotations()
+	dplAnnotations[corev1alpha1.AnnotationHybridDiscovery] = corev1alpha1.HybridDiscoveryEnabled
+	newDpl.SetAnnotations(dplAnnotations)
 
-	if err = unstructured.SetNestedStringMap(dpl.Object, annotations, "metadata", "annotations"); err != nil {
+	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(newDpl.GetNamespace()).Update(newDpl, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
-
-	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dplObj.Namespace).Update(dpl, metav1.UpdateOptions{}); err != nil {
-		klog.Error(err)
-		t.Fail()
-	}
-
 	<-ds.(DeployableSync).updateCh
-
-	dpl, _ = hubDynamicClient.Resource(dplGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
+	dpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
 
 	g.Expect(dpl).To(BeNil())
 }

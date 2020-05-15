@@ -21,8 +21,8 @@ import (
 )
 
 var (
-	// AnnotationDiscovered indicates whether a resource has been created as a result of a discovery process
-	AnnotationDiscovered = SchemeGroupVersion.Group + "/hybrid-discovered"
+	// AnnotationHybridDiscovery indicates whether a resource has been created as a result of a discovery process
+	AnnotationHybridDiscovery = SchemeGroupVersion.Group + "/hybrid-discovery"
 
 	//AnnotationClusterScope indicates whether discovery should look for resources cluster wide rather then in a specific namespace
 	AnnotationClusterScope = SchemeGroupVersion.Group + "/hybrid-discover-clusterscoped"
@@ -37,8 +37,11 @@ var (
 )
 
 const (
-	// DiscoveryEnabled indicates whether the discovery is enabled for an application CR
-	DiscoveryEnabled = "true"
+	// HybridDiscoveryEnabled indicates whether the discovery is enabled for a resource managed by a deployable
+	HybridDiscoveryEnabled = "enabled"
+
+	// HybridDiscoveryCompleted indicates whether the discovery has been completed for resource controlled by a deployable
+	HybridDiscoveryCompleted = "completed"
 )
 
 // DeployerSpec defines the desired state of Deployer
