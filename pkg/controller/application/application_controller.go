@@ -31,10 +31,10 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/deployable"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 
+	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 )
 
@@ -101,8 +101,8 @@ type ReconcileApplicationInterface interface {
 }
 
 func (r *ReconcileApplication) isAppDiscoveryEnabled(app *unstructured.Unstructured) bool {
-	if _, enabled := app.GetAnnotations()[corev1alpha1.AnnotationHybridDiscovery]; !enabled ||
-		app.GetAnnotations()[corev1alpha1.AnnotationHybridDiscovery] != corev1alpha1.HybridDiscoveryEnabled {
+	if _, enabled := app.GetAnnotations()[hdplv1alpha1.AnnotationHybridDiscovery]; !enabled ||
+		app.GetAnnotations()[hdplv1alpha1.AnnotationHybridDiscovery] != hdplv1alpha1.HybridDiscoveryEnabled {
 		return false
 	}
 
@@ -215,7 +215,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 					klog.V(packageInfoLogLevel).Info("Successfully found GVR ", gvr.String())
 
 					var objlist *unstructured.UnstructuredList
-					if _, ok := app.GetAnnotations()[corev1alpha1.AnnotationClusterScope]; ok {
+					if _, ok := app.GetAnnotations()[hdplv1alpha1.AnnotationClusterScope]; ok {
 						// retrieve all components, cluster wide
 						objlist, err = r.explorer.DynamicMCClient.Resource(gvr).List(metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})
 					} else {

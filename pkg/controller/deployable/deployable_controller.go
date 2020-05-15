@@ -32,7 +32,7 @@ import (
 
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 
-	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
+	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 )
 
@@ -143,8 +143,8 @@ func (r *ReconcileDeployable) syncCreateDeployable(obj interface{}) {
 	}
 
 	// exit if deployable does not have the hybrid-discovered annotation
-	if annotation, ok := metaobj.GetAnnotations()[corev1alpha1.AnnotationHybridDiscovery]; !ok ||
-		annotation != corev1alpha1.HybridDiscoveryEnabled {
+	if annotation, ok := metaobj.GetAnnotations()[hdplv1alpha1.AnnotationHybridDiscovery]; !ok ||
+		annotation != hdplv1alpha1.HybridDiscoveryEnabled {
 		return
 	}
 
@@ -163,8 +163,8 @@ func (r *ReconcileDeployable) syncUpdateDeployable(oldObj, newObj interface{}) {
 	}
 
 	// exit if deployable does not have the hybrid-discovered annotation
-	if annotation, ok := metaNew.GetAnnotations()[corev1alpha1.AnnotationHybridDiscovery]; !ok ||
-		annotation != corev1alpha1.HybridDiscoveryEnabled {
+	if annotation, ok := metaNew.GetAnnotations()[hdplv1alpha1.AnnotationHybridDiscovery]; !ok ||
+		annotation != hdplv1alpha1.HybridDiscoveryEnabled {
 		return
 	}
 
