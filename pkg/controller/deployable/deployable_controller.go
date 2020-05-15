@@ -137,9 +137,14 @@ func (r *ReconcileDeployable) syncCreateDeployable(obj interface{}) {
 		return
 	}
 
+	//reconcile only deployables in the cluster namespace
+	if metaobj.GetNamespace() != r.explorer.Cluster.Namespace {
+		return
+	}
+
 	// exit if deployable does not have the hybrid-discovered annotation
-	if annotation, ok := metaobj.GetAnnotations()[corev1alpha1.AnnotationDiscovered]; !ok ||
-		annotation != "true" {
+	if annotation, ok := metaobj.GetAnnotations()[corev1alpha1.AnnotationHybridDiscovery]; !ok ||
+		annotation != corev1alpha1.HybridDiscoveryEnabled {
 		return
 	}
 
@@ -153,10 +158,13 @@ func (r *ReconcileDeployable) syncUpdateDeployable(oldObj, newObj interface{}) {
 		klog.Error("Failed to access object metadata for sync with error: ", err)
 		return
 	}
+	if metaNew.GetNamespace() != r.explorer.Cluster.Namespace {
+		return
+	}
 
 	// exit if deployable does not have the hybrid-discovered annotation
-	if annotation, ok := metaNew.GetAnnotations()[corev1alpha1.AnnotationDiscovered]; !ok ||
-		annotation != "true" {
+	if annotation, ok := metaNew.GetAnnotations()[corev1alpha1.AnnotationHybridDiscovery]; !ok ||
+		annotation != corev1alpha1.HybridDiscoveryEnabled {
 		return
 	}
 
@@ -165,23 +173,16 @@ func (r *ReconcileDeployable) syncUpdateDeployable(oldObj, newObj interface{}) {
 		klog.Error("Failed to access object metadata for sync with error: ", err)
 		return
 	}
-	ucOld, err := runtime.DefaultUnstructuredConverter.ToUnstructured(oldObj)
-	if err != nil {
-		klog.Error("Failed to convert object with error: ", err)
-		return
-	}
-	oldSpec, _, err := unstructured.NestedMap(ucOld, "spec")
+
+	ucOld := oldObj.(*unstructured.Unstructured)
+	oldSpec, _, err := unstructured.NestedMap(ucOld.Object, "spec")
 	if err != nil {
 		klog.Error("Failed to retrieve deployable spec with error: ", err)
 		return
 	}
 
-	ucNew, err := runtime.DefaultUnstructuredConverter.ToUnstructured(newObj)
-	if err != nil {
-		klog.Error("Failed to convert object with error: ", err)
-		return
-	}
-	newSpec, _, err := unstructured.NestedMap(ucNew, "spec")
+	ucNew := newObj.(*unstructured.Unstructured)
+	newSpec, _, err := unstructured.NestedMap(ucNew.Object, "spec")
 	if err != nil {
 		klog.Error("Failed to retrieve deployable spec with error: ", err)
 		return

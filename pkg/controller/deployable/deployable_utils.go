@@ -82,66 +82,98 @@ func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer
 }
 
 func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured, explorer *utils.Explorer) error {
-	refreshedDpl := prepareDeployable(dpl, metaobj, explorer)
 
-	var err error
-	refreshedObject, err := patchObject(refreshedDpl, metaobj, explorer)
-	prepareTemplate(refreshedObject)
-
-	refreshedDpl.Spec.Template = &runtime.RawExtension{
-		Object: refreshedObject,
-	}
-
-	if refreshedObject == nil {
-		return nil
-	}
-
-	if err != nil {
-		klog.Error("Failed to patch object with error: ", err)
-		return err
-	}
-
-	if refreshedDpl.UID == "" {
+	if dpl.UID == "" {
+		refreshedDpl := prepareDeployable(dpl, metaobj, explorer)
+		prepareTemplate(metaobj)
+		refreshedDpl.Spec.Template = &runtime.RawExtension{
+			Object: metaobj,
+		}
 		ucContent, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(refreshedDpl)
+
 		uc := &unstructured.Unstructured{}
 		uc.SetUnstructuredContent(ucContent)
 		uc.SetGroupVersionKind(deployableGVK)
-		_, err = explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(refreshedDpl.Namespace).Create(uc, metav1.CreateOptions{})
+
+		uc, err := explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(refreshedDpl.Namespace).Create(uc, metav1.CreateOptions{})
 		if err != nil {
 			klog.Error("Failed to sync deployable ", dpl.Namespace+"/"+dpl.Name)
 			return err
 		}
-	} else if !reflect.DeepEqual(refreshedDpl, dpl) {
-		// avoid expensive reconciliation logic if no changes in dpl structure
-		uc, err := explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(refreshedDpl.Namespace).Get(refreshedDpl.Name, metav1.GetOptions{})
-
-		if err != nil {
-			klog.Error("Failed to retrieve deployable from hub ", refreshedDpl.Namespace+"/"+refreshedDpl.Name)
-			return err
-		}
-		var resVersion = uc.GetResourceVersion()
-		ucContent, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(refreshedDpl)
-
-		uc.SetUnstructuredContent(ucContent)
-		uc.SetResourceVersion(resVersion)
-		uc.SetGroupVersionKind(deployableGVK)
-		_, err = explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(refreshedDpl.Namespace).Update(uc, metav1.UpdateOptions{})
-		if err != nil {
-			klog.Error("Failed to sync deployable ", dpl.Namespace+"/"+dpl.Name)
-			return err
-		}
+		klog.V(packageInfoLogLevel).Info("Successfully added deployable ", uc.GetNamespace()+"/"+uc.GetName(),
+			" for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 
 	} else {
-		klog.V(packageInfoLogLevel).Info("Skipping deployable ", dpl.Namespace+"/"+dpl.Name, ". No changes detected")
+		uc, err := explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
+		if err != nil {
+			klog.Error("Failed to retrieve deployable from hub ", dpl.Namespace+"/"+dpl.Name)
+			return err
+		}
+
+		refreshedObject, err := patchObject(uc, metaobj, explorer)
+		if err != nil {
+			klog.Error("Failed to patch object ", metaobj.GetNamespace()+"/"+metaobj.GetName(), " with error: ", err)
+			return err
+		}
+		// avoid expensive reconciliation logic if no changes in the object structure
+		if !reflect.DeepEqual(refreshedObject, metaobj) {
+			klog.Info("Updating deployable ", uc.GetNamespace()+"/"+uc.GetName())
+			if err = unstructured.SetNestedMap(uc.Object, metaobj.Object, "spec", "template"); err != nil {
+				klog.Error("Failed to set the spec template for deployable ", dpl.Namespace+"/"+dpl.Name)
+				return err
+			}
+			// update the hybrid-discovery annotation
+			annotations := uc.GetAnnotations()
+			annotations[corev1alpha1.AnnotationHybridDiscovery] = corev1alpha1.HybridDiscoveryCompleted
+			uc.SetAnnotations(annotations)
+
+			uc.SetGroupVersionKind(deployableGVK)
+			uc, err = explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(dpl.Namespace).Update(uc, metav1.UpdateOptions{})
+			if err != nil {
+				klog.Error("Failed to sync deployable ", dpl.Namespace+"/"+dpl.Name)
+				return err
+			}
+			klog.V(packageInfoLogLevel).Info("Successfully updated deployable ", uc.GetNamespace()+"/"+uc.GetName(),
+				" for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
+		} else {
+			klog.V(packageInfoLogLevel).Info("Skipping deployable ", dpl.Namespace+"/"+dpl.Name, ". No changes detected")
+		}
+
 	}
-
-	klog.V(packageInfoLogLevel).Info("Successfully synched deployable ", refreshedDpl.Namespace+"/"+refreshedDpl.Name,
-		" for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
-
 	return nil
 }
 
-func patchObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
+func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstructured, explorer *utils.Explorer) *dplv1.Deployable {
+	dpl := deployable.DeepCopy()
+
+	labels := dpl.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	for key, value := range metaobj.GetLabels() {
+		labels[key] = value
+	}
+
+	dpl.SetLabels(labels)
+
+	annotations := dpl.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations[corev1alpha1.SourceObject] = types.NamespacedName{Namespace: metaobj.GetNamespace(), Name: metaobj.GetName()}.String()
+	annotations[dplv1.AnnotationManagedCluster] = explorer.Cluster.String()
+	annotations[dplv1.AnnotationLocal] = trueCondition
+	annotations[corev1alpha1.AnnotationHybridDiscovery] = corev1alpha1.HybridDiscoveryEnabled
+	dpl.SetAnnotations(annotations)
+
+	return dpl
+}
+
+func patchObject(dpl *unstructured.Unstructured, metaobj *unstructured.Unstructured, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
+	klog.V(packageInfoLogLevel).Info("Patching object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
+
 	// if the object is controlled by other deployable, do not change its ownership
 	if hostingAnnotation, ok := (metaobj.GetAnnotations()[dplv1.AnnotationHosting]); ok {
 		var owner = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
@@ -159,7 +191,7 @@ func patchObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured, expl
 			return nil, nil
 		}
 
-		klog.Error("Failed to patch managed cluster object with error:", err)
+		klog.Error("Failed to patch managed cluster object with error: ", err)
 
 		return nil, err
 	}
@@ -173,13 +205,11 @@ func patchObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured, expl
 	annotations[subv1.AnnotationSyncSource] = "subnsdpl-/"
 	annotations[dplv1.AnnotationHosting] = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
 
-	if _, ok := dpl.Annotations[corev1alpha1.AnnotationDiscovered]; ok {
-		annotations[corev1alpha1.AnnotationDiscovered] = dpl.Annotations[corev1alpha1.AnnotationDiscovered]
-	}
-
 	ucobj.SetAnnotations(annotations)
-	_, err = explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Update(ucobj, metav1.UpdateOptions{})
-
+	ucobj, err = explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Update(ucobj, metav1.UpdateOptions{})
+	if err == nil {
+		klog.V(packageInfoLogLevel).Info("Successfully patched object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
+	}
 	return ucobj, err
 }
 
@@ -207,13 +237,7 @@ func locateDeployableForObject(metaobj metav1.Object, explorer *utils.Explorer) 
 
 		srcobj, ok := annotations[corev1alpha1.SourceObject]
 		if ok && srcobj == key {
-			err = runtime.DefaultUnstructuredConverter.FromUnstructured(dpl.Object, objdpl)
-			if err != nil {
-				klog.Error("Failed to convert unstructured to deployable for ", dpl.GetNamespace()+"/"+dpl.GetName())
-				return nil, err
-			}
-
-			break
+			return objdpl, nil
 		}
 	}
 
@@ -300,32 +324,4 @@ func prepareTemplate(metaobj metav1.Object) {
 
 		metaobj.SetAnnotations(annotations)
 	}
-}
-
-func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstructured, explorer *utils.Explorer) *dplv1.Deployable {
-	dpl := deployable.DeepCopy()
-
-	labels := dpl.GetLabels()
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-
-	for key, value := range metaobj.GetLabels() {
-		labels[key] = value
-	}
-
-	dpl.SetLabels(labels)
-
-	annotations := dpl.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-
-	annotations[corev1alpha1.SourceObject] = types.NamespacedName{Namespace: metaobj.GetNamespace(), Name: metaobj.GetName()}.String()
-	annotations[dplv1.AnnotationManagedCluster] = explorer.Cluster.String()
-	annotations[dplv1.AnnotationLocal] = trueCondition
-	annotations[corev1alpha1.AnnotationDiscovered] = trueCondition
-	dpl.SetAnnotations(annotations)
-
-	return dpl
 }

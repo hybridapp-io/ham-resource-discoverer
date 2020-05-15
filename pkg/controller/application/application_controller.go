@@ -18,6 +18,7 @@ import (
 	"time"
 
 	sigappv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
@@ -100,8 +101,8 @@ type ReconcileApplicationInterface interface {
 }
 
 func (r *ReconcileApplication) isAppDiscoveryEnabled(app *unstructured.Unstructured) bool {
-	if _, enabled := app.GetAnnotations()[corev1alpha1.AnnotationDiscovered]; !enabled ||
-		app.GetAnnotations()[corev1alpha1.AnnotationDiscovered] != corev1alpha1.DiscoveryEnabled {
+	if _, enabled := app.GetAnnotations()[corev1alpha1.AnnotationHybridDiscovery]; !enabled ||
+		app.GetAnnotations()[corev1alpha1.AnnotationHybridDiscovery] != corev1alpha1.HybridDiscoveryEnabled {
 		return false
 	}
 
@@ -149,14 +150,42 @@ func (r *ReconcileApplication) stop() {
 }
 
 func (r *ReconcileApplication) syncCreateApplication(newObj interface{}) {
-	if err := r.syncApplication(newObj.(*unstructured.Unstructured)); err != nil {
+	ucNew := newObj.(*unstructured.Unstructured)
+	if !r.isAppDiscoveryEnabled(ucNew) {
+		return
+	}
+	klog.V(packageInfoLogLevel).Info("Creating application ", newObj.(*unstructured.Unstructured).GetNamespace()+"/"+newObj.(*unstructured.Unstructured).GetName())
+	if err := r.syncApplication(ucNew); err != nil {
 		klog.Error("Could not reconcile application ", newObj.(*unstructured.Unstructured).GetName(), " on create with error ", err)
 	}
 }
 
 func (r *ReconcileApplication) syncUpdateApplication(oldObj, newObj interface{}) {
-	if err := r.syncApplication(newObj.(*unstructured.Unstructured)); err != nil {
-		klog.Error("Could not reconcile application ", newObj.(*unstructured.Unstructured).GetName(), " on update with error ", err)
+
+	ucOld := oldObj.(*unstructured.Unstructured)
+	oldSpec, _, err := unstructured.NestedMap(ucOld.Object, "spec")
+	if err != nil {
+		klog.Error("Failed to retrieve deployable spec with error: ", err)
+		return
+	}
+
+	ucNew := newObj.(*unstructured.Unstructured)
+	newSpec, _, err := unstructured.NestedMap(ucNew.Object, "spec")
+	if err != nil {
+		klog.Error("Failed to retrieve deployable spec with error: ", err)
+		return
+	}
+	// reconcile only if specs or discovered label have changed
+	if !r.isAppDiscoveryEnabled(ucNew) {
+		return
+	}
+	if equality.Semantic.DeepEqual(oldSpec, newSpec) {
+		klog.V(packageInfoLogLevel).Info("Skip updating application ", ucNew.GetNamespace()+"/"+ucNew.GetName(), ". No changes detected")
+		return
+	}
+	klog.V(packageInfoLogLevel).Info("Updating application ", ucNew.GetNamespace()+"/"+ucNew.GetName())
+	if err := r.syncApplication(ucNew); err != nil {
+		klog.Error("Could not reconcile application ", ucNew.GetNamespace()+"/"+ucNew.GetName(), " on update with error ", err)
 	}
 }
 
@@ -166,9 +195,6 @@ func (r *ReconcileApplication) syncRemoveApplication(oldObj interface{}) {
 
 func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) error {
 
-	if !r.isAppDiscoveryEnabled(obj) {
-		return nil
-	}
 	// convert obj to Application
 	app := &sigappv1beta1.Application{}
 	err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, app)
