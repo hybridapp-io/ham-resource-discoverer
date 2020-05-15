@@ -27,8 +27,7 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
-
+	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
@@ -93,10 +92,10 @@ var (
 			Name:      mcServiceName,
 			Namespace: mcName,
 			Annotations: map[string]string{
-				corev1alpha1.AnnotationHybridDiscovery: corev1alpha1.HybridDiscoveryEnabled,
+				hdplv1alpha1.AnnotationHybridDiscovery: hdplv1alpha1.HybridDiscoveryEnabled,
 			},
 			Labels: map[string]string{
-				corev1alpha1.AnnotationHybridDiscovery: corev1alpha1.HybridDiscoveryEnabled,
+				hdplv1alpha1.AnnotationHybridDiscovery: hdplv1alpha1.HybridDiscoveryEnabled,
 			},
 		},
 		Spec: dplv1.DeployableSpec{
@@ -111,10 +110,10 @@ var (
 			Name:      mcSTSName,
 			Namespace: mcName,
 			Annotations: map[string]string{
-				corev1alpha1.AnnotationHybridDiscovery: corev1alpha1.HybridDiscoveryEnabled,
+				hdplv1alpha1.AnnotationHybridDiscovery: hdplv1alpha1.HybridDiscoveryEnabled,
 			},
 			Labels: map[string]string{
-				corev1alpha1.AnnotationHybridDiscovery: corev1alpha1.HybridDiscoveryEnabled,
+				hdplv1alpha1.AnnotationHybridDiscovery: hdplv1alpha1.HybridDiscoveryEnabled,
 			},
 		},
 		Spec: dplv1.DeployableSpec{
@@ -280,7 +279,7 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	}
 
 	dplAnnotations := newDpl.GetAnnotations()
-	dplAnnotations[corev1alpha1.AnnotationHybridDiscovery] = corev1alpha1.HybridDiscoveryEnabled
+	dplAnnotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
 	newDpl.SetAnnotations(dplAnnotations)
 
 	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Update(newDpl, metav1.UpdateOptions{}); err != nil {
@@ -549,7 +548,7 @@ func TestDeployableCleanup(t *testing.T) {
 	// trigger reconciliation on deployable and make sure it gets cleaned up
 	newDpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
 	dplAnnotations := newDpl.GetAnnotations()
-	dplAnnotations[corev1alpha1.AnnotationHybridDiscovery] = corev1alpha1.HybridDiscoveryEnabled
+	dplAnnotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
 	newDpl.SetAnnotations(dplAnnotations)
 
 	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(newDpl.GetNamespace()).Update(newDpl, metav1.UpdateOptions{}); err != nil {

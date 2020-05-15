@@ -28,7 +28,7 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
+	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
 )
 
 var (
@@ -169,7 +169,7 @@ func TestApplicationDiscovery(t *testing.T) {
 	}()
 	app := mcApp.DeepCopy()
 	app.Annotations = make(map[string]string)
-	app.Annotations[corev1alpha1.AnnotationHybridDiscovery] = corev1alpha1.HybridDiscoveryEnabled
+	app.Annotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
 	appUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(app)
 	uc = &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(appUC)
@@ -198,7 +198,7 @@ func TestApplicationDiscovery(t *testing.T) {
 
 		annotations, _, _ := unstructured.NestedMap(dpl.Object, "metadata", "annotations")
 		g.Expect(annotations).To(Not(BeNil()))
-		g.Expect(annotations[corev1alpha1.AnnotationHybridDiscovery]).To(Equal(corev1alpha1.HybridDiscoveryEnabled))
+		g.Expect(annotations[hdplv1alpha1.AnnotationHybridDiscovery]).To(Equal(hdplv1alpha1.HybridDiscoveryEnabled))
 
 		labels, _, _ := unstructured.NestedMap(dpl.Object, "spec", "template", "metadata", "labels")
 		g.Expect(labels).To(Not(BeNil()))

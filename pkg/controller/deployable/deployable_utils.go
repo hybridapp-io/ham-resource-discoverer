@@ -29,6 +29,7 @@ import (
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 
+	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
 	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 )
@@ -124,7 +125,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 			}
 			// update the hybrid-discovery annotation
 			annotations := uc.GetAnnotations()
-			annotations[corev1alpha1.AnnotationHybridDiscovery] = corev1alpha1.HybridDiscoveryCompleted
+			annotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryCompleted
 			uc.SetAnnotations(annotations)
 
 			uc.SetGroupVersionKind(deployableGVK)
@@ -165,7 +166,7 @@ func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstr
 	annotations[corev1alpha1.SourceObject] = types.NamespacedName{Namespace: metaobj.GetNamespace(), Name: metaobj.GetName()}.String()
 	annotations[dplv1.AnnotationManagedCluster] = explorer.Cluster.String()
 	annotations[dplv1.AnnotationLocal] = trueCondition
-	annotations[corev1alpha1.AnnotationHybridDiscovery] = corev1alpha1.HybridDiscoveryEnabled
+	annotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
 	dpl.SetAnnotations(annotations)
 
 	return dpl
