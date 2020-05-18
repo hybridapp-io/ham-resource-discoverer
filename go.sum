@@ -598,6 +598,10 @@ github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpO
 github.com/huandu/xstrings v1.2.0/go.mod h1:DvyZB1rfVYsBIigL8HwpZgxHwXozlTgGqn63UyNX5k4=
 github.com/hybridapp-io/ham-deployable-operator v0.0.0-20200515203417-5897542a0126 h1:nMzdhMLAfF6KaeHv6b7NtOLIKUpHk1AXnxYtOObcY1Q=
 github.com/hybridapp-io/ham-deployable-operator v0.0.0-20200515203417-5897542a0126/go.mod h1:VH22kRxjY9s0fBIrfZu31vq6E2xXaMMVYNJ62UgMwZ8=
+github.com/hybridapp-io/ham-deployable-operator v0.0.0-20200517153418-d69ee9cd9d79 h1:ZEazHrrwxKr8KC54cPto5dCvj+FQni7g6rgD2qhkvDY=
+github.com/hybridapp-io/ham-deployable-operator v0.0.0-20200517153418-d69ee9cd9d79/go.mod h1:VH22kRxjY9s0fBIrfZu31vq6E2xXaMMVYNJ62UgMwZ8=
+github.com/hybridapp-io/ham-deployable-operator v0.0.0-20200518131919-8169f1d5bd5b h1:g0/2ySsAAZAzcDZS0pLt4m4bpDtQMsp13w2hAawq1is=
+github.com/hybridapp-io/ham-deployable-operator v0.0.0-20200518131919-8169f1d5bd5b/go.mod h1:VH22kRxjY9s0fBIrfZu31vq6E2xXaMMVYNJ62UgMwZ8=
 github.com/iancoleman/strcase v0.0.0-20180726023541-3605ed457bf7/go.mod h1:SK73tn/9oHe+/Y0h39VT4UCxmurVJkR5NA7kMEAOgSE=
 github.com/iancoleman/strcase v0.0.0-20190422225806-e506e3ef7365/go.mod h1:SK73tn/9oHe+/Y0h39VT4UCxmurVJkR5NA7kMEAOgSE=
 github.com/imdario/mergo v0.3.5/go.mod h1:2EnlNZ0deacrJVfApfmtdGgDfMuh/nq6Ok1EcJh5FfA=
