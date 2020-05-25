@@ -203,6 +203,8 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 		klog.Error("Failed to convert unstructured to application with error: ", err)
 		return err
 	}
+
+	klog.Info("Processing application  ", app)
 	var appComponents map[metav1.GroupKind]*unstructured.UnstructuredList = make(map[metav1.GroupKind]*unstructured.UnstructuredList)
 
 	for _, componentKind := range app.Spec.ComponentGroupKinds {
@@ -217,21 +219,28 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 					var objlist *unstructured.UnstructuredList
 					if _, ok := app.GetAnnotations()[hdplv1alpha1.AnnotationClusterScope]; ok {
 						// retrieve all components, cluster wide
-						objlist, err = r.explorer.DynamicMCClient.Resource(gvr).List(metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})
+						objlist, err = r.explorer.DynamicMCClient.Resource(gvr).List(
+							metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})
+						if len(objlist.Items) == 0 {
+							// we still want to create the deployables for the resources we find on managed cluster ,
+							// even though some kinds defined in the app may not have corresponding (satisfying the selector)
+							// resources on managed cluster
+							klog.Info("Could not find any managed cluster resources for application component with kind ", componentKind.String(), " cluster wide ")
+						}
+
 					} else {
 						// retrieve only namespaced components
 						objlist, err = r.explorer.DynamicMCClient.Resource(gvr).Namespace(obj.GetNamespace()).List(
 							metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})
+						if len(objlist.Items) == 0 {
+							klog.Info("Could not find any managed cluster resources for application component with kind ",
+								componentKind.String(), " in namespace ", obj.GetNamespace())
+						}
+
 					}
 					if err != nil {
 						klog.Error("Failed to retrieve the list of components based on selector ")
 						return err
-					}
-					if len(objlist.Items) == 0 {
-						// we still want to create the deployables for the resources we find on managed cluster ,
-						// even though some kinds defined in the app may not have corresponding (satisfying the selector)
-						// resources on managed cluster
-						klog.Info("Could not find a managed cluster resource for application component with kind ", componentKind.String())
 					}
 					appComponents[componentKind] = objlist
 					break

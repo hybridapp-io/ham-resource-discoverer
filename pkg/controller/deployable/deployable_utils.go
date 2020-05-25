@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
@@ -104,7 +105,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 		klog.V(packageInfoLogLevel).Info("Successfully added deployable ", uc.GetNamespace()+"/"+uc.GetName(),
 			" for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 
-	} else {
+	} else if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		uc, err := explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
 		if err != nil {
 			klog.Error("Failed to retrieve deployable from hub ", dpl.Namespace+"/"+dpl.Name)
@@ -131,7 +132,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 			uc.SetGroupVersionKind(deployableGVK)
 			uc, err = explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(dpl.Namespace).Update(uc, metav1.UpdateOptions{})
 			if err != nil {
-				klog.Error("Failed to sync deployable ", dpl.Namespace+"/"+dpl.Name)
+				klog.Error("Failed to update deployable ", dpl.Namespace+"/"+dpl.Name, ". Retrying... ")
 				return err
 			}
 			klog.V(packageInfoLogLevel).Info("Successfully updated deployable ", uc.GetNamespace()+"/"+uc.GetName(),
@@ -139,7 +140,10 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 		} else {
 			klog.V(packageInfoLogLevel).Info("Skipping deployable ", dpl.Namespace+"/"+dpl.Name, ". No changes detected")
 		}
-
+		return nil
+	}); err != nil {
+		klog.Error("Failed to sync deployable ", dpl.Namespace+"/"+dpl.Name)
+		return err
 	}
 	return nil
 }
