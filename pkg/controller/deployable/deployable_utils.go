@@ -106,7 +106,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 			" for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 
 	} else if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		uc, err := explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
+		uc, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
 		if err != nil {
 			klog.Error("Failed to retrieve deployable from hub ", dpl.Namespace+"/"+dpl.Name)
 			return err
@@ -130,7 +130,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 			uc.SetAnnotations(annotations)
 
 			uc.SetGroupVersionKind(deployableGVK)
-			uc, err = explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(dpl.Namespace).Update(uc, metav1.UpdateOptions{})
+			uc, err = explorer.DynamicHubClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(uc, metav1.UpdateOptions{})
 			if err != nil {
 				klog.Error("Failed to update deployable ", dpl.Namespace+"/"+dpl.Name, ". Retrying... ")
 				return err

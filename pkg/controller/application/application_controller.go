@@ -49,10 +49,10 @@ var (
 		Version: sigappv1beta1.SchemeGroupVersion.Version,
 		Kind:    "Application",
 	}
-	deployableGVK = schema.GroupVersionKind{
-		Group:   dplv1.SchemeGroupVersion.Group,
-		Version: dplv1.SchemeGroupVersion.Version,
-		Kind:    "Deployable",
+	deployableGVR = schema.GroupVersionResource{
+		Group:    dplv1.SchemeGroupVersion.Group,
+		Version:  dplv1.SchemeGroupVersion.Version,
+		Resource: "deployables",
 	}
 )
 
