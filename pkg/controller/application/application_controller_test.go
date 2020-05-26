@@ -140,7 +140,6 @@ func TestApplicationDiscovery(t *testing.T) {
 
 	svcGVR := rec.explorer.GVKGVRMap[mcSVC.GroupVersionKind()]
 	stsGVR := rec.explorer.GVKGVRMap[mcSTS.GroupVersionKind()]
-	dplGVR := rec.explorer.GVKGVRMap[deployableGVK]
 	appGVR := rec.explorer.GVKGVRMap[applicationGVK]
 
 	svc := mcSVC.DeepCopy()
@@ -185,7 +184,7 @@ func TestApplicationDiscovery(t *testing.T) {
 	<-as.(ApplicationSync).createCh
 
 	// retrieve deployablelist on hub
-	dplList, _ := hubDynamicClient.Resource(dplGVR).Namespace(cluster.Namespace).List(metav1.ListOptions{})
+	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(metav1.ListOptions{})
 	g.Expect(dplList.Items).To(HaveLen(2))
 	kinds := [2]string{"Service", "StatefulSet"}
 
