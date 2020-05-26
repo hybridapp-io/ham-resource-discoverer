@@ -149,7 +149,6 @@ func TestNoGroupObject(t *testing.T) {
 	svc := mcService.DeepCopy()
 
 	svcGVR := rec.explorer.GVKGVRMap[svc.GroupVersionKind()]
-	dplGVR := rec.explorer.GVKGVRMap[deployableGVK]
 
 	svcUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(svc)
 	uc := &unstructured.Unstructured{}
@@ -173,14 +172,13 @@ func TestNoGroupObject(t *testing.T) {
 	uc = &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(dplUC)
 	uc.SetGroupVersionKind(deployableGVK)
-
-	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Delete(dpl.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(dpl.Name, &metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -223,7 +221,6 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	sts := mcSTS.DeepCopy()
 
 	stsGVR := rec.explorer.GVKGVRMap[sts.GroupVersionKind()]
-	dplGVR := rec.explorer.GVKGVRMap[deployableGVK]
 
 	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
 	uc := &unstructured.Unstructured{}
@@ -248,13 +245,13 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	uc.SetUnstructuredContent(dplUC)
 	uc.SetGroupVersionKind(deployableGVK)
 
-	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Delete(dpl.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(dpl.Name, &metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -265,7 +262,7 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	<-ds.(DeployableSync).updateCh
 
 	// remove the object subscription anno
-	newDpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
+	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
 	newSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
 
 	stsAnnotations := newSTS.GetAnnotations()
@@ -282,7 +279,7 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	dplAnnotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
 	newDpl.SetAnnotations(dplAnnotations)
 
-	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Update(newDpl, metav1.UpdateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(newDpl, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -320,7 +317,6 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	sts := mcSTS.DeepCopy()
 
 	stsGVR := rec.explorer.GVKGVRMap[sts.GroupVersionKind()]
-	dplGVR := rec.explorer.GVKGVRMap[deployableGVK]
 
 	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
 	uc := &unstructured.Unstructured{}
@@ -345,13 +341,13 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	uc.SetUnstructuredContent(dplUC)
 	uc.SetGroupVersionKind(deployableGVK)
 
-	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Delete(dpl.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(dpl.Name, &metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -362,7 +358,7 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	<-ds.(DeployableSync).updateCh
 
 	// remove the object subscription anno
-	newDpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
+	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
 	newSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
 
 	stsAnnotations := newSTS.GetAnnotations()
@@ -378,7 +374,7 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	dplAnnotations := newDpl.GetAnnotations()
 	newDpl.SetAnnotations(dplAnnotations)
 
-	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl.Namespace).Update(newDpl, metav1.UpdateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(newDpl, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -416,7 +412,6 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	sts := mcSTS.DeepCopy()
 
 	stsGVR := rec.explorer.GVKGVRMap[sts.GroupVersionKind()]
-	dplGVR := rec.explorer.GVKGVRMap[deployableGVK]
 
 	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
 	uc := &unstructured.Unstructured{}
@@ -441,13 +436,13 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	uc1.SetUnstructuredContent(dpl1UC)
 	uc1.SetGroupVersionKind(deployableGVK)
 
-	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl1.Namespace).Create(uc1, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl1.Namespace).Create(uc1, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(dplGVR).Namespace(dpl1.Namespace).Delete(dpl1.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl1.Namespace).Delete(dpl1.Name, &metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -465,13 +460,13 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	uc2.SetUnstructuredContent(dpl2UC)
 	uc2.SetGroupVersionKind(deployableGVK)
 
-	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dpl2.Namespace).Create(uc2, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl2.Namespace).Create(uc2, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(dplGVR).Namespace(dpl2.Namespace).Delete(dpl2.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl2.Namespace).Delete(dpl2.Name, &metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -512,7 +507,6 @@ func TestDeployableCleanup(t *testing.T) {
 	sts := mcSTS.DeepCopy()
 
 	stsGVR := rec.explorer.GVKGVRMap[sts.GroupVersionKind()]
-	dplGVR := rec.explorer.GVKGVRMap[deployableGVK]
 
 	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
 	uc := &unstructured.Unstructured{}
@@ -530,7 +524,7 @@ func TestDeployableCleanup(t *testing.T) {
 	uc.SetUnstructuredContent(dplUC)
 	uc.SetGroupVersionKind(deployableGVK)
 
-	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(dplObj.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -546,17 +540,17 @@ func TestDeployableCleanup(t *testing.T) {
 	}
 
 	// trigger reconciliation on deployable and make sure it gets cleaned up
-	newDpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
+	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
 	dplAnnotations := newDpl.GetAnnotations()
 	dplAnnotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
 	newDpl.SetAnnotations(dplAnnotations)
 
-	if _, err = hubDynamicClient.Resource(dplGVR).Namespace(newDpl.GetNamespace()).Update(newDpl, metav1.UpdateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(newDpl.GetNamespace()).Update(newDpl, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 	<-ds.(DeployableSync).updateCh
-	dpl, _ := hubDynamicClient.Resource(dplGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
+	dpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
 
 	g.Expect(dpl).To(BeNil())
 }

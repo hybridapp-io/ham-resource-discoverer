@@ -104,7 +104,7 @@ func (ds DeployableSync) start() {
 		},
 	}
 
-	ds.dynamicHubFactory.ForResource(ds.explorer.GVKGVRMap[deployableGVK]).Informer().AddEventHandler(handler)
+	ds.dynamicHubFactory.ForResource(deployableGVR).Informer().AddEventHandler(handler)
 
 	ds.stopCh = make(chan struct{})
 	ds.dynamicHubFactory.Start(ds.stopCh)

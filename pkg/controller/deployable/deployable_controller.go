@@ -43,6 +43,12 @@ var (
 		Version: dplv1.SchemeGroupVersion.Version,
 		Kind:    "Deployable",
 	}
+
+	deployableGVR = schema.GroupVersionResource{
+		Group:    dplv1.SchemeGroupVersion.Group,
+		Version:  dplv1.SchemeGroupVersion.Version,
+		Resource: "deployables",
+	}
 )
 
 // Add creates a new Deployable Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -99,11 +105,6 @@ func (r *ReconcileDeployable) start() {
 	// generic explorer
 	r.stopCh = make(chan struct{})
 
-	if _, ok := r.explorer.GVKGVRMap[deployableGVK]; !ok {
-		klog.Error("Failed to obtain gvr for deployable gvk:", deployableGVK.String())
-		return
-	}
-
 	handler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
 			r.syncCreateDeployable(new)
@@ -116,7 +117,7 @@ func (r *ReconcileDeployable) start() {
 		},
 	}
 
-	r.dynamicHubFactory.ForResource(r.explorer.GVKGVRMap[deployableGVK]).Informer().AddEventHandler(handler)
+	r.dynamicHubFactory.ForResource(deployableGVR).Informer().AddEventHandler(handler)
 
 	r.stopCh = make(chan struct{})
 	r.dynamicHubFactory.Start(r.stopCh)
@@ -208,8 +209,7 @@ func (r *ReconcileDeployable) syncDeployable(metaobj metav1.Object) {
 	if tpl == nil {
 		klog.Info("Cleaning up orphaned deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 		// remove deployable from hub
-		gvr := r.explorer.GVKGVRMap[deployableGVK]
-		err = r.explorer.DynamicHubClient.Resource(gvr).Namespace(metaobj.GetNamespace()).Delete(metaobj.GetName(), &metav1.DeleteOptions{})
+		err = r.explorer.DynamicHubClient.Resource(deployableGVR).Namespace(metaobj.GetNamespace()).Delete(metaobj.GetName(), &metav1.DeleteOptions{})
 		if err != nil {
 			klog.Error("Failed to delete orphaned deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 		}
