@@ -70,7 +70,8 @@ func newReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.Na
 		return nil, err
 	}
 
-	var dynamicHubFactory = dynamicinformer.NewDynamicSharedInformerFactory(explorer.DynamicHubClient, resync)
+	var dynamicHubFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(explorer.DynamicHubClient, resync,
+		cluster.Namespace, nil)
 	reconciler := &ReconcileDeployable{
 		explorer: explorer,
 
