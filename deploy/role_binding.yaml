@@ -9,7 +9,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: ham-resource-discoverer
-    namespace: ham
+    namespace: default
 roleRef:
   kind: ClusterRole
   name: ham-resource-discoverer

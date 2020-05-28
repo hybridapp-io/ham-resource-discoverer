@@ -41,8 +41,7 @@ spec:
       containers:
         - name: ham-resource-discoverer
           # Replace this with the built image name
-          #image: quay.io/rbmateescu/ham-resource-discoverer:v0.0.1
-          image: mateescu/ham-resource-discoverer:v0.0.1
+          image: REPLACE_IMAGE
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -54,15 +53,12 @@ spec:
             runAsUser: 1001
           command:
             - ham-resource-discoverer
-          args: ["-v=3"]
           imagePullPolicy: Always
           env:
             - name: CLUSTERNAME
-              value: reave
+              value: placeholder
             - name: CLUSTERNAMESPACE
-              value: reave
-            - name: HUBCLUSTERCONFIGFILE
-              value: "/var/run/klusterlet/hub_kubeconfig"              
+              value: placeholder
             - name: WATCH_NAMESPACE
               value: ""
             - name: POD_NAME
@@ -90,11 +86,3 @@ spec:
             requests:
               cpu: 25m
               memory: 64Mi
-          volumeMounts:
-            - mountPath: /var/run/klusterlet
-              name: hub-kubeconfig
-      volumes:
-        - name: hub-kubeconfig
-          secret:
-            defaultMode: 420
-            secretName: hub-kubeconfig 
