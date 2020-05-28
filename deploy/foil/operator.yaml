@@ -58,9 +58,9 @@ spec:
           imagePullPolicy: Always
           env:
             - name: CLUSTERNAME
-              value: reave
+              value: foil
             - name: CLUSTERNAMESPACE
-              value: reave
+              value: foil
             - name: HUBCLUSTERCONFIGFILE
               value: "/var/run/klusterlet/hub_kubeconfig"              
             - name: WATCH_NAMESPACE

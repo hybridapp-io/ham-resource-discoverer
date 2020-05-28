@@ -19,8 +19,6 @@ require (
 
 // Pinned to kubernetes-1.16.2
 replace (
-	//github.com/IBM/multicloud-operators-deployable => github.com/IBM/multicloud-operators-deployable v0.0.0-20191107210906-c97c522530f0
-	//github.com/IBM/multicloud-operators-subscription => github.com/IBM/multicloud-operators-subscription v0.0.0-20200108163525-7f5ca6018cd5
 	k8s.io/api => k8s.io/api v0.17.4
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20191016113550-5357c4baaf65
 	k8s.io/apimachinery => k8s.io/apimachinery v0.17.4

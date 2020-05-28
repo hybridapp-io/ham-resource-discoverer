@@ -1,0 +1,10 @@
+apiVersion: core.hybridapp.io/v1alpha1
+kind: Deployer
+metadata:
+  name: kubernetes
+  labels:
+    deployer-type: kubernetes
+  annotations:
+    "core.hybridapp.io/is-default-deployer": "true"
+spec:
+  type: kubernetes
