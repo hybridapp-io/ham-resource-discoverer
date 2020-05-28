@@ -24,22 +24,18 @@ import (
 // AddToManagerFuncs is a list of non-synchronized functions to add all Controllers to the Manager
 var AddToManagerFuncs []func(manager.Manager, *rest.Config, types.NamespacedName) error
 
-// AddToManager adds all non-synchronizing controllers to the Manager
-func AddToManager(m manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) error {
+// AddToManagerSyncFuncs is a list of synchronized functions to add all Controllers to the Manager
+var AddToManagerSyncFuncs []func(manager.Manager, *rest.Config, types.NamespacedName, synchronizer.HubSynchronizerInterface) error
+
+// AddToManager adds all controllers to the Manager
+func AddToManager(m manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName,
+	hubSynchronizer synchronizer.HubSynchronizerInterface) error {
 	for _, f := range AddToManagerFuncs {
 		if err := f(m, hubconfig, cluster); err != nil {
 			return err
 		}
 	}
-	return nil
-}
 
-// AddToManagerSyncFuncs is a list of synchronized functions to add all Controllers to the Manager
-var AddToManagerSyncFuncs []func(manager.Manager, *rest.Config, types.NamespacedName, synchronizer.HubSynchronizerInterface) error
-
-// AddToManager adds all synchronizing controllers to the Manager
-func AddToManagerSync(m manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName,
-	hubSynchronizer synchronizer.HubSynchronizerInterface) error {
 	for _, f := range AddToManagerSyncFuncs {
 		if err := f(m, hubconfig, cluster, hubSynchronizer); err != nil {
 			return err

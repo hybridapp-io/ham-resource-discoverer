@@ -30,6 +30,7 @@ import (
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/apis"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer/ocm"
 	"github.com/hybridapp-io/ham-resource-discoverer/version"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -62,7 +63,18 @@ func printVersion() {
 	klog.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
 }
 
-func RunManager(sig <-chan struct{}, hubSynchronizer synchronizer.HubSynchronizerInterface) {
+func SetHubSynchronizer(hubSynchronizer synchronizer.HubSynchronizerInterface) {
+	synchronizer.Synchronizer = hubSynchronizer
+}
+
+func GetHubSynchronizer() synchronizer.HubSynchronizerInterface {
+	if synchronizer.Synchronizer == nil {
+		synchronizer.Synchronizer = &ocm.HubSynchronizer{}
+	}
+	return synchronizer.Synchronizer
+}
+
+func RunManager(sig <-chan struct{}) {
 	printVersion()
 
 	namespace, err := k8sutil.GetWatchNamespace()
@@ -119,13 +131,8 @@ func RunManager(sig <-chan struct{}, hubSynchronizer synchronizer.HubSynchronize
 		}
 	}
 
-	if err := controller.AddToManager(mgr, hubconfig, types.NamespacedName{Name: Options.ClusterName, Namespace: Options.ClusterNamespace}); err != nil {
-		klog.Error(err, "")
-		os.Exit(errorExitCode)
-	}
-
-	if err := controller.AddToManagerSync(mgr, hubconfig,
-		types.NamespacedName{Name: Options.ClusterName, Namespace: Options.ClusterNamespace}, hubSynchronizer); err != nil {
+	if err := controller.AddToManager(mgr, hubconfig,
+		types.NamespacedName{Name: Options.ClusterName, Namespace: Options.ClusterNamespace}, GetHubSynchronizer()); err != nil {
 		klog.Error(err, "")
 		os.Exit(errorExitCode)
 	}

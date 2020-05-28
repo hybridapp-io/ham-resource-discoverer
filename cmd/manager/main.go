@@ -20,7 +20,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/hybridapp-io/ham-resource-discoverer/cmd/operator"
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer/ocm"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -39,6 +38,5 @@ func main() {
 
 	pflag.Parse()
 
-	hubSynchronizer := &ocm.HubSynchronizer{}
-	operator.RunManager(signals.SetupSignalHandler(), hubSynchronizer)
+	operator.RunManager(signals.SetupSignalHandler())
 }

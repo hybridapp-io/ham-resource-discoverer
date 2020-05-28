@@ -22,3 +22,5 @@ type HubSynchronizerInterface interface {
 	PatchManagedClusterObject(object *unstructured.Unstructured, metaobj *unstructured.Unstructured) (*unstructured.Unstructured, error)
 	GetHostingAnnotations() []string
 }
+
+var Synchronizer HubSynchronizerInterface
