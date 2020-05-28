@@ -107,7 +107,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 			return err
 		}
 
-		refreshedObject, err := hubSynchronizer.PatchManagedClusterObject(uc, metaobj)
+		refreshedObject, err := hubSynchronizer.PatchManagedClusterObject(explorer, uc, metaobj)
 		if err != nil {
 			klog.Error("Failed to patch object ", metaobj.GetNamespace()+"/"+metaobj.GetName(), " with error: ", err)
 			return err

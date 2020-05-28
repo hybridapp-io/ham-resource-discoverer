@@ -16,7 +16,6 @@ package ocm
 import (
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/deployable"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer"
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer/ocm"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -32,7 +31,6 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedNa
 		klog.Error("Failed to initialize the explorer")
 		return err
 	}
-	hubSynchronizer.(*ocm.HubSynchronizer).Explorer = explorer
 
 	reconciler, err := deployable.NewReconciler(mgr, hubconfig, cluster, explorer, hubSynchronizer)
 	if err != nil {

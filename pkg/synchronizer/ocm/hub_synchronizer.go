@@ -33,10 +33,9 @@ const (
 var _ synchronizer.HubSynchronizerInterface = &HubSynchronizer{}
 
 type HubSynchronizer struct {
-	Explorer *utils.Explorer
 }
 
-func (h *HubSynchronizer) PatchManagedClusterObject(dpl *unstructured.Unstructured,
+func (h *HubSynchronizer) PatchManagedClusterObject(explorer *utils.Explorer, dpl *unstructured.Unstructured,
 	metaobj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
 	klog.V(packageInfoLogLevel).Info("Patching object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 
@@ -49,9 +48,9 @@ func (h *HubSynchronizer) PatchManagedClusterObject(dpl *unstructured.Unstructur
 			return metaobj, nil
 		}
 	}
-	objgvr := h.Explorer.GVKGVRMap[metaobj.GroupVersionKind()]
+	objgvr := explorer.GVKGVRMap[metaobj.GroupVersionKind()]
 
-	ucobj, err := h.Explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Get(metaobj.GetName(), metav1.GetOptions{})
+	ucobj, err := explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Get(metaobj.GetName(), metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil
@@ -72,7 +71,7 @@ func (h *HubSynchronizer) PatchManagedClusterObject(dpl *unstructured.Unstructur
 	annotations[dplv1.AnnotationHosting] = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
 
 	ucobj.SetAnnotations(annotations)
-	ucobj, err = h.Explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Update(ucobj, metav1.UpdateOptions{})
+	ucobj, err = explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Update(ucobj, metav1.UpdateOptions{})
 	if err == nil {
 		klog.V(packageInfoLogLevel).Info("Successfully patched object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 	}

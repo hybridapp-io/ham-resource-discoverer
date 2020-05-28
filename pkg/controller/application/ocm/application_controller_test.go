@@ -140,9 +140,7 @@ func TestApplicationDiscovery(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{
-		Explorer: explorer,
-	}
+	hubSynchronizer := &ocm.HubSynchronizer{}
 	rec, _ := application.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 	as := SetupApplicationSync(rec)
 

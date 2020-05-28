@@ -15,11 +15,12 @@
 package synchronizer
 
 import (
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 type HubSynchronizerInterface interface {
-	PatchManagedClusterObject(object *unstructured.Unstructured, metaobj *unstructured.Unstructured) (*unstructured.Unstructured, error)
+	PatchManagedClusterObject(explorer *utils.Explorer, object *unstructured.Unstructured, metaobj *unstructured.Unstructured) (*unstructured.Unstructured, error)
 	GetHostingAnnotations() []string
 }
 

@@ -146,9 +146,7 @@ func TestNoGroupObject(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{
-		Explorer: explorer,
-	}
+	hubSynchronizer := &ocm.HubSynchronizer{}
 
 	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
@@ -229,9 +227,7 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{
-		Explorer: explorer,
-	}
+	hubSynchronizer := &ocm.HubSynchronizer{}
 
 	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
@@ -331,9 +327,7 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{
-		Explorer: explorer,
-	}
+	hubSynchronizer := &ocm.HubSynchronizer{}
 
 	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
@@ -432,9 +426,7 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{
-		Explorer: explorer,
-	}
+	hubSynchronizer := &ocm.HubSynchronizer{}
 
 	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
@@ -538,9 +530,7 @@ func TestDeployableCleanup(t *testing.T) {
 		t.Fail()
 	}
 
-	hubSynchronizer := &ocm.HubSynchronizer{
-		Explorer: explorer,
-	}
+	hubSynchronizer := &ocm.HubSynchronizer{}
 
 	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
