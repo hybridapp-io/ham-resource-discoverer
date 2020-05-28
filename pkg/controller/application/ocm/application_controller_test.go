@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package application
+package ocm
 
 import (
 	"testing"
 
-	sigappv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
 	. "github.com/onsi/gomega"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -29,9 +30,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/application"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer/ocm"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
+	sigappv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 )
 
 var (
+	applicationGVK = schema.GroupVersionKind{
+		Group:   sigappv1beta1.SchemeGroupVersion.Group,
+		Version: sigappv1beta1.SchemeGroupVersion.Version,
+		Kind:    "Application",
+	}
+	deployableGVR = schema.GroupVersionResource{
+		Group:    dplv1.SchemeGroupVersion.Group,
+		Version:  dplv1.SchemeGroupVersion.Version,
+		Resource: "deployables",
+	}
+
 	webServiceName   = "wordpress-webserver-svc"
 	webSTSName       = "wordpress-webserver"
 	applicationName  = "wordpress-01"
@@ -122,7 +139,11 @@ func TestApplicationDiscovery(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	rec, _ := newReconciler(mgr, hubClusterConfig, cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	hubSynchronizer := &ocm.HubSynchronizer{
+		Explorer: explorer,
+	}
+	rec, _ := application.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 	as := SetupApplicationSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -132,15 +153,15 @@ func TestApplicationDiscovery(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	as.start()
-	defer as.stop()
+	as.Start()
+	defer as.Stop()
 
-	hubDynamicClient := rec.explorer.DynamicHubClient
-	mcDynamicClient := rec.explorer.DynamicMCClient
+	hubDynamicClient := explorer.DynamicHubClient
+	mcDynamicClient := explorer.DynamicMCClient
 
-	svcGVR := rec.explorer.GVKGVRMap[mcSVC.GroupVersionKind()]
-	stsGVR := rec.explorer.GVKGVRMap[mcSTS.GroupVersionKind()]
-	appGVR := rec.explorer.GVKGVRMap[applicationGVK]
+	svcGVR := explorer.GVKGVRMap[mcSVC.GroupVersionKind()]
+	stsGVR := explorer.GVKGVRMap[mcSTS.GroupVersionKind()]
+	appGVR := explorer.GVKGVRMap[applicationGVK]
 
 	svc := mcSVC.DeepCopy()
 	svcUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(svc)
@@ -181,7 +202,7 @@ func TestApplicationDiscovery(t *testing.T) {
 		}
 	}()
 	// wait on app reconcile on MC
-	<-as.(ApplicationSync).createCh
+	<-as.(ApplicationSync).CreateCh
 
 	// retrieve deployablelist on hub
 	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(metav1.ListOptions{})
