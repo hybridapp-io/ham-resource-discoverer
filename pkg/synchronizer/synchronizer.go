@@ -12,11 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package synchronizer
 
-import "github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/deployable/ocm"
+import (
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+)
 
-func init() {
-	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerSyncFuncs = append(AddToManagerSyncFuncs, ocm.Add)
+type HubSynchronizerInterface interface {
+	PatchManagedClusterObject(explorer *utils.Explorer, object *unstructured.Unstructured, metaobj *unstructured.Unstructured) (*unstructured.Unstructured, error)
+	GetHostingAnnotations() []string
 }
+
+var Synchronizer HubSynchronizerInterface

@@ -11,35 +11,33 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package controller
+package ocm
 
 import (
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/application"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-// AddToManagerFuncs is a list of non-synchronized functions to add all Controllers to the Manager
-var AddToManagerFuncs []func(manager.Manager, *rest.Config, types.NamespacedName) error
-
-// AddToManagerSyncFuncs is a list of synchronized functions to add all Controllers to the Manager
-var AddToManagerSyncFuncs []func(manager.Manager, *rest.Config, types.NamespacedName, synchronizer.HubSynchronizerInterface) error
-
-// AddToManager adds all controllers to the Manager
-func AddToManager(m manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName,
+// Add creates a newObj Deployable Controller and adds it to the Manager. The Manager will set fields on the Controller
+// and Start it when the Manager is Started.
+func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName,
 	hubSynchronizer synchronizer.HubSynchronizerInterface) error {
-	for _, f := range AddToManagerFuncs {
-		if err := f(m, hubconfig, cluster); err != nil {
-			return err
-		}
+	explorer, err := utils.InitExplorer(hubconfig, mgr.GetConfig(), cluster)
+	if err != nil {
+		klog.Error("Failed to initialize the explorer")
+		return err
 	}
 
-	for _, f := range AddToManagerSyncFuncs {
-		if err := f(m, hubconfig, cluster, hubSynchronizer); err != nil {
-			return err
-		}
+	reconciler, err := application.NewReconciler(mgr, hubconfig, cluster, explorer, hubSynchronizer)
+	if err != nil {
+		klog.Error("Failed to create the application reconciler ", err)
+		return err
 	}
+	reconciler.Start()
 	return nil
 }

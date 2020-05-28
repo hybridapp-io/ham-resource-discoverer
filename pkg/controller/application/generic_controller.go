@@ -32,10 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/deployable"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 )
 
 const (
@@ -49,55 +49,36 @@ var (
 		Version: sigappv1beta1.SchemeGroupVersion.Version,
 		Kind:    "Application",
 	}
-	deployableGVR = schema.GroupVersionResource{
-		Group:    dplv1.SchemeGroupVersion.Group,
-		Version:  dplv1.SchemeGroupVersion.Version,
-		Resource: "deployables",
-	}
 )
 
-// Add creates a newObj Deployable Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) error {
-	reconciler, err := newReconciler(mgr, hubconfig, cluster)
-	if err != nil {
-		klog.Error("Failed to create the application reconciler ", err)
-		return err
-	}
-	reconciler.start()
-	return nil
-}
-
-func newReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) (*ReconcileApplication, error) {
-	explorer, err := utils.InitExplorer(hubconfig, mgr.GetConfig(), cluster)
-	if err != nil {
-		klog.Error("Failed to create client explorer: ", err)
-		return nil, err
-	}
+func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName,
+	explorer *utils.Explorer, hubSynchronizer synchronizer.HubSynchronizerInterface) (*ReconcileApplication, error) {
 	var dynamicMCFactory = dynamicinformer.NewDynamicSharedInformerFactory(explorer.DynamicMCClient, resync)
 	reconciler := &ReconcileApplication{
-		explorer:         explorer,
-		dynamicMCFactory: dynamicMCFactory,
+		Explorer:         explorer,
+		HubConnector:     hubSynchronizer,
+		DynamicMCFactory: dynamicMCFactory,
 	}
 	return reconciler, nil
 }
 
 // ReconcileDeployable reconciles a Deployable object
 type ReconcileApplication struct {
-	explorer         *utils.Explorer
-	dynamicMCFactory dynamicinformer.DynamicSharedInformerFactory
-	stopCh           chan struct{}
+	Explorer         *utils.Explorer
+	HubConnector     synchronizer.HubSynchronizerInterface
+	DynamicMCFactory dynamicinformer.DynamicSharedInformerFactory
+	StopCh           chan struct{}
 }
 
 // blank assignment to verify that ReconcileDeployer implements ReconcileDeployableInterface
 var _ ReconcileApplicationInterface = &ReconcileApplication{}
 
 type ReconcileApplicationInterface interface {
-	start()
-	syncCreateApplication(newObj interface{})
-	syncUpdateApplication(oldObj interface{}, newObj interface{})
-	syncRemoveApplication(oldObj interface{})
-	stop()
+	Start()
+	SyncCreateApplication(newObj interface{})
+	SyncUpdateApplication(oldObj interface{}, newObj interface{})
+	SyncRemoveApplication(oldObj interface{})
+	Stop()
 }
 
 func (r *ReconcileApplication) isAppDiscoveryEnabled(app *unstructured.Unstructured) bool {
@@ -109,47 +90,47 @@ func (r *ReconcileApplication) isAppDiscoveryEnabled(app *unstructured.Unstructu
 	return true
 }
 
-func (r *ReconcileApplication) start() {
-	r.stop()
+func (r *ReconcileApplication) Start() {
+	r.Stop()
 
-	if r.explorer == nil || r.dynamicMCFactory == nil {
+	if r.Explorer == nil || r.DynamicMCFactory == nil {
 		return
 	}
 	// generic explorer
-	r.stopCh = make(chan struct{})
+	r.StopCh = make(chan struct{})
 
-	if _, ok := r.explorer.GVKGVRMap[applicationGVK]; !ok {
+	if _, ok := r.Explorer.GVKGVRMap[applicationGVK]; !ok {
 		klog.Error("Failed to obtain gvr for application gvk:", applicationGVK.String())
 		return
 	}
 
 	handler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(newObj interface{}) {
-			r.syncCreateApplication(newObj)
+			r.SyncCreateApplication(newObj)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			r.syncUpdateApplication(oldObj, newObj)
+			r.SyncUpdateApplication(oldObj, newObj)
 		},
 		DeleteFunc: func(oldObj interface{}) {
-			r.syncRemoveApplication(oldObj)
+			r.SyncRemoveApplication(oldObj)
 		},
 	}
 
-	r.dynamicMCFactory.ForResource(r.explorer.GVKGVRMap[applicationGVK]).Informer().AddEventHandler(handler)
+	r.DynamicMCFactory.ForResource(r.Explorer.GVKGVRMap[applicationGVK]).Informer().AddEventHandler(handler)
 
-	r.stopCh = make(chan struct{})
-	r.dynamicMCFactory.Start(r.stopCh)
+	r.StopCh = make(chan struct{})
+	r.DynamicMCFactory.Start(r.StopCh)
 }
 
-func (r *ReconcileApplication) stop() {
-	if r.stopCh != nil {
-		r.dynamicMCFactory.WaitForCacheSync(r.stopCh)
-		close(r.stopCh)
+func (r *ReconcileApplication) Stop() {
+	if r.StopCh != nil {
+		r.DynamicMCFactory.WaitForCacheSync(r.StopCh)
+		close(r.StopCh)
 	}
-	r.stopCh = nil
+	r.StopCh = nil
 }
 
-func (r *ReconcileApplication) syncCreateApplication(newObj interface{}) {
+func (r *ReconcileApplication) SyncCreateApplication(newObj interface{}) {
 	ucNew := newObj.(*unstructured.Unstructured)
 	if !r.isAppDiscoveryEnabled(ucNew) {
 		return
@@ -160,7 +141,7 @@ func (r *ReconcileApplication) syncCreateApplication(newObj interface{}) {
 	}
 }
 
-func (r *ReconcileApplication) syncUpdateApplication(oldObj, newObj interface{}) {
+func (r *ReconcileApplication) SyncUpdateApplication(oldObj, newObj interface{}) {
 
 	ucOld := oldObj.(*unstructured.Unstructured)
 	oldSpec, _, err := unstructured.NestedMap(ucOld.Object, "spec")
@@ -189,7 +170,7 @@ func (r *ReconcileApplication) syncUpdateApplication(oldObj, newObj interface{})
 	}
 }
 
-func (r *ReconcileApplication) syncRemoveApplication(oldObj interface{}) {
+func (r *ReconcileApplication) SyncRemoveApplication(oldObj interface{}) {
 
 }
 
@@ -204,12 +185,11 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 		return err
 	}
 
-	klog.Info("Processing application  ", app)
 	var appComponents map[metav1.GroupKind]*unstructured.UnstructuredList = make(map[metav1.GroupKind]*unstructured.UnstructuredList)
 
 	for _, componentKind := range app.Spec.ComponentGroupKinds {
 		klog.Info("Processing application GK ", componentKind.String())
-		for gvk, gvr := range r.explorer.GVKGVRMap {
+		for gvk, gvr := range r.Explorer.GVKGVRMap {
 
 			if gvk.Kind == componentKind.Kind {
 				// for v1 core group (which is the empty name group), application label selectors use v1 as group name
@@ -219,7 +199,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 					var objlist *unstructured.UnstructuredList
 					if _, ok := app.GetAnnotations()[hdplv1alpha1.AnnotationClusterScope]; ok {
 						// retrieve all components, cluster wide
-						objlist, err = r.explorer.DynamicMCClient.Resource(gvr).List(
+						objlist, err = r.Explorer.DynamicMCClient.Resource(gvr).List(
 							metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})
 						if len(objlist.Items) == 0 {
 							// we still want to create the deployables for the resources we find on managed cluster ,
@@ -230,7 +210,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 
 					} else {
 						// retrieve only namespaced components
-						objlist, err = r.explorer.DynamicMCClient.Resource(gvr).Namespace(obj.GetNamespace()).List(
+						objlist, err = r.Explorer.DynamicMCClient.Resource(gvr).Namespace(obj.GetNamespace()).List(
 							metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})
 						if len(objlist.Items) == 0 {
 							klog.Info("Could not find any managed cluster resources for application component with kind ",
@@ -253,7 +233,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 	for _, objlist := range appComponents {
 		for _, item := range objlist.Items {
 			klog.Info("Processing object ", item.GetName(), " in namespace ", item.GetNamespace(), " with kind ", item.GetKind())
-			if err = deployable.SyncDeployable(&item, r.explorer); err != nil {
+			if err = deployable.SyncDeployable(&item, r.Explorer, r.HubConnector); err != nil {
 				klog.Error("Failed to sync deployable ", item.GetNamespace()+"/"+item.GetName(), " with error ", err)
 			}
 		}

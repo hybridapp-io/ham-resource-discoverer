@@ -33,6 +33,7 @@ import (
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 )
 
@@ -51,31 +52,26 @@ var (
 	}
 )
 
-// Add creates a new Deployable Controller and adds it to the Manager. The Manager will set fields on the Controller
-// and Start it when the Manager is Started.
-func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) error {
-	reconciler, err := newReconciler(mgr, hubconfig, cluster)
-	if err != nil {
-		klog.Error("Failed to create the deployer reconciler ", err)
-		return err
-	}
-	reconciler.start()
-	return nil
-}
+// // Add creates a new Deployable Controller and adds it to the Manager. The Manager will set fields on the Controller
+// // and Start it when the Manager is Started.
+// func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) error {
+// 	reconciler, err := newReconciler(mgr, hubconfig, cluster)
+// 	if err != nil {
+// 		klog.Error("Failed to create the deployer reconciler ", err)
+// 		return err
+// 	}
+// 	reconciler.start()
+// 	return nil
+// }
 
-func newReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) (*ReconcileDeployable, error) {
-	explorer, err := utils.InitExplorer(hubconfig, mgr.GetConfig(), cluster)
-	if err != nil {
-		klog.Error("Failed to create client explorer: ", err)
-		return nil, err
-	}
-
+func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName,
+	explorer *utils.Explorer, hubSynchronizer synchronizer.HubSynchronizerInterface) (*ReconcileDeployable, error) {
 	var dynamicHubFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(explorer.DynamicHubClient, resync,
 		cluster.Namespace, nil)
 	reconciler := &ReconcileDeployable{
-		explorer: explorer,
-
-		dynamicHubFactory: dynamicHubFactory,
+		Explorer:          explorer,
+		HubSynchronizer:   hubSynchronizer,
+		DynamicHubFactory: dynamicHubFactory,
 	}
 	return reconciler, nil
 }
@@ -84,55 +80,56 @@ func newReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.Na
 var _ ReconcileDeployableInterface = &ReconcileDeployable{}
 
 type ReconcileDeployableInterface interface {
-	start()
-	syncCreateDeployable(obj interface{})
-	syncUpdateDeployable(old interface{}, new interface{})
-	syncRemoveDeployable(obj interface{})
-	stop()
+	Start()
+	SyncCreateDeployable(obj interface{})
+	SyncUpdateDeployable(old interface{}, new interface{})
+	SyncRemoveDeployable(obj interface{})
+	Stop()
 }
 
 // ReconcileDeployable reconciles a Deployable object
 type ReconcileDeployable struct {
-	explorer          *utils.Explorer
-	dynamicHubFactory dynamicinformer.DynamicSharedInformerFactory
-	stopCh            chan struct{}
+	Explorer          *utils.Explorer
+	HubSynchronizer   synchronizer.HubSynchronizerInterface
+	DynamicHubFactory dynamicinformer.DynamicSharedInformerFactory
+	StopCh            chan struct{}
 }
 
-func (r *ReconcileDeployable) start() {
-	if r.dynamicHubFactory == nil {
+func (r *ReconcileDeployable) Start() {
+	if r.DynamicHubFactory == nil {
 		return
 	}
-	r.stop()
+	r.Stop()
 	// generic explorer
-	r.stopCh = make(chan struct{})
+	r.StopCh = make(chan struct{})
 
 	handler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
-			r.syncCreateDeployable(new)
+			r.SyncCreateDeployable(new)
 		},
 		UpdateFunc: func(old, new interface{}) {
-			r.syncUpdateDeployable(old, new)
+			r.SyncUpdateDeployable(old, new)
 		},
 		DeleteFunc: func(old interface{}) {
-			r.syncRemoveDeployable(old)
+			r.SyncRemoveDeployable(old)
 		},
 	}
 
-	r.dynamicHubFactory.ForResource(deployableGVR).Informer().AddEventHandler(handler)
+	r.DynamicHubFactory.ForResource(deployableGVR).Informer().AddEventHandler(handler)
 
-	r.stopCh = make(chan struct{})
-	r.dynamicHubFactory.Start(r.stopCh)
+	r.StopCh = make(chan struct{})
+	r.DynamicHubFactory.Start(r.StopCh)
 }
 
-func (r *ReconcileDeployable) stop() {
-	if r.stopCh != nil {
-		r.dynamicHubFactory.WaitForCacheSync(r.stopCh)
-		close(r.stopCh)
+func (r *ReconcileDeployable) Stop() {
+	if r.StopCh != nil {
+		r.DynamicHubFactory.WaitForCacheSync(r.StopCh)
+		close(r.StopCh)
 	}
-	r.stopCh = nil
+	r.StopCh = nil
 }
 
-func (r *ReconcileDeployable) syncCreateDeployable(obj interface{}) {
+func (r *ReconcileDeployable) SyncCreateDeployable(obj interface{}) {
 	metaobj, err := meta.Accessor(obj)
 	if err != nil {
 		klog.Error("Failed to access object metadata for sync with error: ", err)
@@ -140,7 +137,7 @@ func (r *ReconcileDeployable) syncCreateDeployable(obj interface{}) {
 	}
 
 	//reconcile only deployables in the cluster namespace
-	if metaobj.GetNamespace() != r.explorer.Cluster.Namespace {
+	if metaobj.GetNamespace() != r.Explorer.Cluster.Namespace {
 		return
 	}
 
@@ -153,14 +150,14 @@ func (r *ReconcileDeployable) syncCreateDeployable(obj interface{}) {
 	r.syncDeployable(metaobj)
 }
 
-func (r *ReconcileDeployable) syncUpdateDeployable(oldObj, newObj interface{}) {
+func (r *ReconcileDeployable) SyncUpdateDeployable(oldObj, newObj interface{}) {
 
 	metaNew, err := meta.Accessor(newObj)
 	if err != nil {
 		klog.Error("Failed to access object metadata for sync with error: ", err)
 		return
 	}
-	if metaNew.GetNamespace() != r.explorer.Cluster.Namespace {
+	if metaNew.GetNamespace() != r.Explorer.Cluster.Namespace {
 		return
 	}
 
@@ -198,11 +195,11 @@ func (r *ReconcileDeployable) syncUpdateDeployable(oldObj, newObj interface{}) {
 	r.syncDeployable(metaNew)
 }
 
-func (r *ReconcileDeployable) syncRemoveDeployable(obj interface{}) {}
+func (r *ReconcileDeployable) SyncRemoveDeployable(obj interface{}) {}
 
 func (r *ReconcileDeployable) syncDeployable(metaobj metav1.Object) {
 
-	tpl, err := locateObjectForDeployable(metaobj, r.explorer)
+	tpl, err := locateObjectForDeployable(metaobj, r.Explorer)
 	if err != nil {
 		klog.Error("Failed to retrieve the wrapped object for deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName()+" with error: ", err)
 		return
@@ -210,7 +207,7 @@ func (r *ReconcileDeployable) syncDeployable(metaobj metav1.Object) {
 	if tpl == nil {
 		klog.Info("Cleaning up orphaned deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 		// remove deployable from hub
-		err = r.explorer.DynamicHubClient.Resource(deployableGVR).Namespace(metaobj.GetNamespace()).Delete(metaobj.GetName(), &metav1.DeleteOptions{})
+		err = r.Explorer.DynamicHubClient.Resource(deployableGVR).Namespace(metaobj.GetNamespace()).Delete(metaobj.GetName(), &metav1.DeleteOptions{})
 		if err != nil {
 			klog.Error("Failed to delete orphaned deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 		}
@@ -223,7 +220,7 @@ func (r *ReconcileDeployable) syncDeployable(metaobj metav1.Object) {
 		klog.Error("Cannot convert unstructured to deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName()+" with error: ", err)
 		return
 	}
-	if err = updateDeployableAndObject(dpl, tpl, r.explorer); err != nil {
+	if err = updateDeployableAndObject(dpl, tpl, r.Explorer, r.HubSynchronizer); err != nil {
 		klog.Error("Cannot update deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName()+" with error: ", err)
 		return
 	}

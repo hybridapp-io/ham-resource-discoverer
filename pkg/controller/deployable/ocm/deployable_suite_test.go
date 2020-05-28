@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package application
+package ocm
 
 import (
 	"log"
@@ -30,6 +30,7 @@ import (
 	"github.com/onsi/gomega"
 
 	apis "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/deployable"
 )
 
 var (
@@ -41,8 +42,8 @@ func TestMain(m *testing.M) {
 	// setup the managed cluster environment
 	managedCluster := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "deploy", "crds"),
-			filepath.Join("..", "..", "..", "hack", "test"),
+			filepath.Join("..", "..", "..", "..", "deploy", "crds"),
+			filepath.Join("..", "..", "..", "..", "hack", "test"),
 		},
 	}
 
@@ -59,8 +60,8 @@ func TestMain(m *testing.M) {
 	// setup the hub cluster environment
 	hubCluster := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "deploy", "crds"),
-			filepath.Join("..", "..", "..", "hack", "test"),
+			filepath.Join("..", "..", "..", "..", "deploy", "crds"),
+			filepath.Join("..", "..", "..", "..", "hack", "test"),
 		},
 	}
 
@@ -73,93 +74,91 @@ func TestMain(m *testing.M) {
 	if err = managedCluster.Stop(); err != nil {
 		log.Fatal(err)
 	}
-
 	if err = hubCluster.Stop(); err != nil {
 		log.Fatal(err)
 	}
-
 	os.Exit(code)
 }
 
 const waitgroupDelta = 1
 
-type ApplicationSync struct {
-	*ReconcileApplication
+type DeployableSync struct {
+	*deployable.ReconcileDeployable
 	createCh chan interface{}
 	updateCh chan interface{}
 	deleteCh chan interface{}
 }
 
-func (as ApplicationSync) start() {
-	as.stop()
+func (ds DeployableSync) Start() {
+	ds.Stop()
 	// generic explorer
-	as.stopCh = make(chan struct{})
+	ds.StopCh = make(chan struct{})
 	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(newObj interface{}) {
-			as.syncCreateApplication(newObj)
+		AddFunc: func(new interface{}) {
+			ds.SyncCreateDeployable(new)
 		},
-		UpdateFunc: func(old, newObj interface{}) {
-			as.syncUpdateApplication(old, newObj)
+		UpdateFunc: func(old, new interface{}) {
+			ds.SyncUpdateDeployable(old, new)
 		},
 		DeleteFunc: func(old interface{}) {
-			as.syncRemoveApplication(old)
+			ds.SyncRemoveDeployable(old)
 		},
 	}
 
-	as.dynamicMCFactory.ForResource(as.explorer.GVKGVRMap[applicationGVK]).Informer().AddEventHandler(handler)
+	ds.DynamicHubFactory.ForResource(deployableGVR).Informer().AddEventHandler(handler)
 
-	as.stopCh = make(chan struct{})
-	as.dynamicMCFactory.Start(as.stopCh)
+	ds.StopCh = make(chan struct{})
+	ds.DynamicHubFactory.Start(ds.StopCh)
 }
 
-func (as ApplicationSync) stop() {
-	if as.stopCh != nil {
-		as.dynamicMCFactory.WaitForCacheSync(as.stopCh)
-		close(as.stopCh)
+func (ds DeployableSync) Stop() {
+	if ds.StopCh != nil {
+		ds.DynamicHubFactory.WaitForCacheSync(ds.StopCh)
+		close(ds.StopCh)
 	}
-	as.stopCh = nil
+	ds.StopCh = nil
 }
 
-func (as ApplicationSync) syncCreateApplication(obj interface{}) {
-	as.ReconcileApplication.syncCreateApplication(obj)
+func (ds DeployableSync) SyncCreateDeployable(newObj interface{}) {
+	ds.ReconcileDeployable.SyncCreateDeployable(newObj)
 	// non-blocking operation
 	select {
-	case as.createCh <- obj:
+	case ds.createCh <- newObj:
 	default:
 	}
 
 }
-func (as ApplicationSync) syncUpdateApplication(old, newObj interface{}) {
-	as.ReconcileApplication.syncUpdateApplication(old, newObj)
+func (ds DeployableSync) SyncUpdateDeployable(oldObj, newObj interface{}) {
+	ds.ReconcileDeployable.SyncUpdateDeployable(oldObj, newObj)
 	// non-blocking operation
 	select {
-	case as.updateCh <- newObj:
+	case ds.updateCh <- newObj:
 	default:
 	}
 
 }
-func (as ApplicationSync) syncRemoveApplication(old interface{}) {
-	as.ReconcileApplication.syncRemoveApplication(old)
+func (ds DeployableSync) SyncRemoveDeployable(oldObj interface{}) {
+	ds.ReconcileDeployable.SyncRemoveDeployable(oldObj)
 	// non-blocking operation
 	select {
-	case as.deleteCh <- old:
+	case ds.deleteCh <- oldObj:
 	default:
 	}
 
 }
 
-func SetupApplicationSync(inner *ReconcileApplication) ReconcileApplicationInterface {
+func SetupDeployableSync(inner *deployable.ReconcileDeployable) deployable.ReconcileDeployableInterface {
 	cCh := make(chan interface{}, 5)
 	uCh := make(chan interface{}, 5)
 	dCh := make(chan interface{}, 5)
 
-	appSync := ApplicationSync{
-		ReconcileApplication: inner,
-		createCh:             cCh,
-		updateCh:             uCh,
-		deleteCh:             dCh,
+	dplSync := DeployableSync{
+		ReconcileDeployable: inner,
+		createCh:            cCh,
+		updateCh:            uCh,
+		deleteCh:            dCh,
 	}
-	return appSync
+	return dplSync
 }
 
 // StartTestManager adds recFn

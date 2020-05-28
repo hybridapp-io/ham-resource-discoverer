@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deployable
+package ocm
 
 import (
 	"testing"
@@ -23,16 +23,32 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/deployable"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer/ocm"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var (
+	deployableGVK = schema.GroupVersionKind{
+		Group:   dplv1.SchemeGroupVersion.Group,
+		Version: dplv1.SchemeGroupVersion.Version,
+		Kind:    "Deployable",
+	}
+
+	deployableGVR = schema.GroupVersionResource{
+		Group:    dplv1.SchemeGroupVersion.Group,
+		Version:  dplv1.SchemeGroupVersion.Version,
+		Resource: "deployables",
+	}
+
 	mcName = "managedcluster"
 
 	mcServiceName = "mysql-svc"
@@ -129,7 +145,11 @@ func TestNoGroupObject(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	rec, _ := newReconciler(mgr, hubClusterConfig, cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	hubSynchronizer := &ocm.HubSynchronizer{}
+
+	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+
 	ds := SetupDeployableSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -139,16 +159,16 @@ func TestNoGroupObject(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	ds.start()
-	defer ds.stop()
+	ds.Start()
+	defer ds.Stop()
 
-	mcDynamicClient := rec.explorer.DynamicMCClient
-	hubDynamicClient := rec.explorer.DynamicHubClient
+	mcDynamicClient := explorer.DynamicMCClient
+	hubDynamicClient := explorer.DynamicHubClient
 
 	// create the local resource
 	svc := mcService.DeepCopy()
 
-	svcGVR := rec.explorer.GVKGVRMap[svc.GroupVersionKind()]
+	svcGVR := explorer.GVKGVRMap[svc.GroupVersionKind()]
 
 	svcUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(svc)
 	uc := &unstructured.Unstructured{}
@@ -172,7 +192,8 @@ func TestNoGroupObject(t *testing.T) {
 	uc = &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(dplUC)
 	uc.SetGroupVersionKind(deployableGVK)
-	if _, err := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	deployablegvr := explorer.GVKGVRMap[deployableGVK]
+	if _, err := hubDynamicClient.Resource(deployablegvr).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -184,6 +205,10 @@ func TestNoGroupObject(t *testing.T) {
 		}
 	}()
 
+	if _, err := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(mcSVCDeployable.Name, metav1.GetOptions{}); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
 	// wait for the deployable sync to come through on hub
 	<-ds.(DeployableSync).createCh
 	<-ds.(DeployableSync).updateCh
@@ -201,7 +226,11 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	rec, _ := newReconciler(mgr, hubClusterConfig, cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	hubSynchronizer := &ocm.HubSynchronizer{}
+
+	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+
 	ds := SetupDeployableSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -211,16 +240,16 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	ds.start()
-	defer ds.stop()
+	ds.Start()
+	defer ds.Stop()
 
-	mcDynamicClient := rec.explorer.DynamicMCClient
-	hubDynamicClient := rec.explorer.DynamicHubClient
+	mcDynamicClient := explorer.DynamicMCClient
+	hubDynamicClient := explorer.DynamicHubClient
 
 	// create the local resource
 	sts := mcSTS.DeepCopy()
 
-	stsGVR := rec.explorer.GVKGVRMap[sts.GroupVersionKind()]
+	stsGVR := explorer.GVKGVRMap[sts.GroupVersionKind()]
 
 	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
 	uc := &unstructured.Unstructured{}
@@ -297,7 +326,11 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	rec, _ := newReconciler(mgr, hubClusterConfig, cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	hubSynchronizer := &ocm.HubSynchronizer{}
+
+	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+
 	ds := SetupDeployableSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -307,16 +340,16 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	ds.start()
-	defer ds.stop()
+	ds.Start()
+	defer ds.Stop()
 
-	mcDynamicClient := rec.explorer.DynamicMCClient
-	hubDynamicClient := rec.explorer.DynamicHubClient
+	mcDynamicClient := explorer.DynamicMCClient
+	hubDynamicClient := explorer.DynamicHubClient
 
 	// create the local resource
 	sts := mcSTS.DeepCopy()
 
-	stsGVR := rec.explorer.GVKGVRMap[sts.GroupVersionKind()]
+	stsGVR := explorer.GVKGVRMap[sts.GroupVersionKind()]
 
 	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
 	uc := &unstructured.Unstructured{}
@@ -392,7 +425,11 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	rec, _ := newReconciler(mgr, hubClusterConfig, cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	hubSynchronizer := &ocm.HubSynchronizer{}
+
+	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+
 	ds := SetupDeployableSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -402,16 +439,16 @@ func TestRefreshOwnershipChange(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	ds.start()
-	defer ds.stop()
+	ds.Start()
+	defer ds.Stop()
 
-	mcDynamicClient := rec.explorer.DynamicMCClient
-	hubDynamicClient := rec.explorer.DynamicHubClient
+	mcDynamicClient := explorer.DynamicMCClient
+	hubDynamicClient := explorer.DynamicHubClient
 
 	// create the local resource
 	sts := mcSTS.DeepCopy()
 
-	stsGVR := rec.explorer.GVKGVRMap[sts.GroupVersionKind()]
+	stsGVR := explorer.GVKGVRMap[sts.GroupVersionKind()]
 
 	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
 	uc := &unstructured.Unstructured{}
@@ -487,7 +524,16 @@ func TestDeployableCleanup(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	rec, _ := newReconciler(mgr, hubClusterConfig, cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	if err != nil {
+		klog.Error("Failed to initialize the explorer")
+		t.Fail()
+	}
+
+	hubSynchronizer := &ocm.HubSynchronizer{}
+
+	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+
 	ds := SetupDeployableSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -497,16 +543,16 @@ func TestDeployableCleanup(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	ds.start()
-	defer ds.stop()
+	ds.Start()
+	defer ds.Stop()
 
-	mcDynamicClient := rec.explorer.DynamicMCClient
-	hubDynamicClient := rec.explorer.DynamicHubClient
+	mcDynamicClient := explorer.DynamicMCClient
+	hubDynamicClient := explorer.DynamicHubClient
 
 	// create the local resource
 	sts := mcSTS.DeepCopy()
 
-	stsGVR := rec.explorer.GVKGVRMap[sts.GroupVersionKind()]
+	stsGVR := explorer.GVKGVRMap[sts.GroupVersionKind()]
 
 	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
 	uc := &unstructured.Unstructured{}
