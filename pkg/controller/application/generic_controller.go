@@ -56,7 +56,7 @@ func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.Na
 	var dynamicMCFactory = dynamicinformer.NewDynamicSharedInformerFactory(explorer.DynamicMCClient, resync)
 	reconciler := &ReconcileApplication{
 		Explorer:         explorer,
-		HubConnector:     hubSynchronizer,
+		HubSynchronizer:  hubSynchronizer,
 		DynamicMCFactory: dynamicMCFactory,
 	}
 	return reconciler, nil
@@ -65,7 +65,7 @@ func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.Na
 // ReconcileDeployable reconciles a Deployable object
 type ReconcileApplication struct {
 	Explorer         *utils.Explorer
-	HubConnector     synchronizer.HubSynchronizerInterface
+	HubSynchronizer  synchronizer.HubSynchronizerInterface
 	DynamicMCFactory dynamicinformer.DynamicSharedInformerFactory
 	StopCh           chan struct{}
 }
@@ -242,7 +242,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 	for _, objlist := range appComponents {
 		for _, item := range objlist.Items {
 			klog.Info("Processing object ", item.GetName(), " in namespace ", item.GetNamespace(), " with kind ", item.GetKind())
-			if err = deployable.SyncDeployable(&item, r.Explorer, r.HubConnector); err != nil {
+			if err = deployable.SyncDeployable(&item, r.Explorer, r.HubSynchronizer); err != nil {
 				klog.Error("Failed to sync deployable ", item.GetNamespace()+"/"+item.GetName(), " with error ", err)
 			}
 		}

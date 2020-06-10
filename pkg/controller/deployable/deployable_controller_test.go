@@ -505,6 +505,69 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
 }
 
+func TestSyncDeployable(t *testing.T) {
+	g := NewWithT(t)
+	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	if err != nil {
+		klog.Error("Failed to initialize the explorer")
+		t.Fail()
+	}
+
+	hubSynchronizer := &ocm.HubSynchronizer{}
+
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+
+	ds := SetupDeployableSync(rec)
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	ds.Start()
+	defer ds.Stop()
+
+	mcDynamicClient := explorer.DynamicMCClient
+	hubDynamicClient := explorer.DynamicHubClient
+
+	// create the local resource
+	sts := mcSTS.DeepCopy()
+
+	stsGVR := explorer.GVKGVRMap[sts.GroupVersionKind()]
+
+	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
+	uc := &unstructured.Unstructured{}
+	uc.SetUnstructuredContent(stsUC)
+
+	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+	defer func() {
+		if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(sts.Name, &metav1.DeleteOptions{}); err != nil {
+			klog.Error(err)
+			t.Fail()
+		}
+	}()
+
+	err = SyncDeployable(uc, explorer, hubSynchronizer)
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	dpl, _ := locateDeployableForObject(uc, explorer)
+	g.Expect(dpl).NotTo(BeNil())
+
+	if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(dpl.GetName(), &metav1.DeleteOptions{}); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+	<-ds.(DeployableSync).deleteCh
+}
+
 func TestDeployableCleanup(t *testing.T) {
 	g := NewWithT(t)
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
