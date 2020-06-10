@@ -194,7 +194,10 @@ func locateDeployableForObject(metaobj metav1.Object, explorer *utils.Explorer) 
 		srcobj, ok := annotations[corev1alpha1.SourceObject]
 		if ok && srcobj == key {
 			objdpl := &dplv1.Deployable{}
-			runtime.DefaultUnstructuredConverter.FromUnstructured(dpl.Object, objdpl)
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(dpl.Object, objdpl); err != nil {
+				klog.Error("Cannot convert unstructured ", dpl.GetNamespace()+"/"+dpl.GetName(), " to deployable ")
+				return nil, err
+			}
 			return objdpl, nil
 		}
 	}
