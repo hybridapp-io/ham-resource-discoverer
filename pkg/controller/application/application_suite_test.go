@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ocm
+package application
 
 import (
 	"log"
@@ -30,7 +30,6 @@ import (
 	"github.com/onsi/gomega"
 
 	apis "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis"
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/application"
 )
 
 var (
@@ -42,8 +41,8 @@ func TestMain(m *testing.M) {
 	// setup the managed cluster environment
 	managedCluster := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "deploy", "crds"),
-			filepath.Join("..", "..", "..", "..", "hack", "test"),
+			filepath.Join("..", "..", "..", "deploy", "crds"),
+			filepath.Join("..", "..", "..", "hack", "test"),
 		},
 	}
 
@@ -60,8 +59,8 @@ func TestMain(m *testing.M) {
 	// setup the hub cluster environment
 	hubCluster := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "deploy", "crds"),
-			filepath.Join("..", "..", "..", "..", "hack", "test"),
+			filepath.Join("..", "..", "..", "deploy", "crds"),
+			filepath.Join("..", "..", "..", "hack", "test"),
 		},
 	}
 
@@ -85,7 +84,7 @@ func TestMain(m *testing.M) {
 const waitgroupDelta = 1
 
 type ApplicationSync struct {
-	*application.ReconcileApplication
+	*ReconcileApplication
 	CreateCh chan interface{}
 	UpdateCh chan interface{}
 	DeleteCh chan interface{}
@@ -149,7 +148,7 @@ func (as ApplicationSync) SyncRemoveApplication(old interface{}) {
 
 }
 
-func SetupApplicationSync(inner *application.ReconcileApplication) application.ReconcileApplicationInterface {
+func SetupApplicationSync(inner *ReconcileApplication) ReconcileApplicationInterface {
 	cCh := make(chan interface{}, 5)
 	uCh := make(chan interface{}, 5)
 	dCh := make(chan interface{}, 5)

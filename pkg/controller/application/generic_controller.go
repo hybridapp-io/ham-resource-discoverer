@@ -56,7 +56,7 @@ func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.Na
 	var dynamicMCFactory = dynamicinformer.NewDynamicSharedInformerFactory(explorer.DynamicMCClient, resync)
 	reconciler := &ReconcileApplication{
 		Explorer:         explorer,
-		HubConnector:     hubSynchronizer,
+		HubSynchronizer:  hubSynchronizer,
 		DynamicMCFactory: dynamicMCFactory,
 	}
 	return reconciler, nil
@@ -65,7 +65,7 @@ func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.Na
 // ReconcileDeployable reconciles a Deployable object
 type ReconcileApplication struct {
 	Explorer         *utils.Explorer
-	HubConnector     synchronizer.HubSynchronizerInterface
+	HubSynchronizer  synchronizer.HubSynchronizerInterface
 	DynamicMCFactory dynamicinformer.DynamicSharedInformerFactory
 	StopCh           chan struct{}
 }
@@ -84,6 +84,15 @@ type ReconcileApplicationInterface interface {
 func (r *ReconcileApplication) isAppDiscoveryEnabled(app *unstructured.Unstructured) bool {
 	if _, enabled := app.GetAnnotations()[hdplv1alpha1.AnnotationHybridDiscovery]; !enabled ||
 		app.GetAnnotations()[hdplv1alpha1.AnnotationHybridDiscovery] != hdplv1alpha1.HybridDiscoveryEnabled {
+		return false
+	}
+
+	return true
+}
+
+func (r *ReconcileApplication) isDiscoveryClusterScoped(obj *unstructured.Unstructured) bool {
+	if _, enabled := obj.GetAnnotations()[hdplv1alpha1.AnnotationClusterScope]; !enabled ||
+		obj.GetAnnotations()[hdplv1alpha1.AnnotationClusterScope] != "true" {
 		return false
 	}
 
@@ -197,7 +206,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 					klog.V(packageInfoLogLevel).Info("Successfully found GVR ", gvr.String())
 
 					var objlist *unstructured.UnstructuredList
-					if _, ok := app.GetAnnotations()[hdplv1alpha1.AnnotationClusterScope]; ok {
+					if r.isDiscoveryClusterScoped(obj) {
 						// retrieve all components, cluster wide
 						objlist, err = r.Explorer.DynamicMCClient.Resource(gvr).List(
 							metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})
@@ -233,7 +242,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 	for _, objlist := range appComponents {
 		for _, item := range objlist.Items {
 			klog.Info("Processing object ", item.GetName(), " in namespace ", item.GetNamespace(), " with kind ", item.GetKind())
-			if err = deployable.SyncDeployable(&item, r.Explorer, r.HubConnector); err != nil {
+			if err = deployable.SyncDeployable(&item, r.Explorer, r.HubSynchronizer); err != nil {
 				klog.Error("Failed to sync deployable ", item.GetNamespace()+"/"+item.GetName(), " with error ", err)
 			}
 		}

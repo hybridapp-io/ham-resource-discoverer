@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ocm
+package application
 
 import (
 	"testing"
@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/application"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer/ocm"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 	sigappv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
@@ -38,11 +37,6 @@ import (
 )
 
 var (
-	applicationGVK = schema.GroupVersionKind{
-		Group:   sigappv1beta1.SchemeGroupVersion.Group,
-		Version: sigappv1beta1.SchemeGroupVersion.Version,
-		Kind:    "Application",
-	}
 	deployableGVR = schema.GroupVersionResource{
 		Group:    dplv1.SchemeGroupVersion.Group,
 		Version:  dplv1.SchemeGroupVersion.Version,
@@ -51,11 +45,13 @@ var (
 
 	webServiceName   = "wordpress-webserver-svc"
 	webSTSName       = "wordpress-webserver"
+	webCMName        = "wordpress-configmap"
 	applicationName  = "wordpress-01"
 	appLabelSelector = "app.kubernetes.io/name"
 
-	mcNamespace   = "managedcluster"
-	userNamespace = "default"
+	mcNamespace      = "managedcluster"
+	userNamespace    = "default"
+	clusterNamespace = "clusterns"
 
 	cluster = types.NamespacedName{
 		Name:      mcNamespace,
@@ -103,6 +99,19 @@ var (
 		},
 	}
 
+	mcCM = &v1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      webCMName,
+			Namespace: clusterNamespace,
+			Labels:    map[string]string{appLabelSelector: applicationName},
+		},
+		Data: map[string]string{"myconfig": "foo"},
+	}
+
 	wordpressAppGK1 = metav1.GroupKind{
 		Group: "v1",
 		Kind:  "Service",
@@ -110,6 +119,10 @@ var (
 	wordpressAppGK2 = metav1.GroupKind{
 		Group: "apps",
 		Kind:  "StatefulSet",
+	}
+	wordpressAppGK3 = metav1.GroupKind{
+		Group: "v1",
+		Kind:  "ConfigMap",
 	}
 
 	mcApp = &sigappv1beta1.Application{
@@ -129,6 +142,7 @@ var (
 			ComponentGroupKinds: []metav1.GroupKind{
 				wordpressAppGK1,
 				wordpressAppGK2,
+				wordpressAppGK3,
 			},
 		},
 	}
@@ -141,7 +155,7 @@ func TestApplicationDiscovery(t *testing.T) {
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
 	hubSynchronizer := &ocm.HubSynchronizer{}
-	rec, _ := application.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 	as := SetupApplicationSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -159,6 +173,7 @@ func TestApplicationDiscovery(t *testing.T) {
 
 	svcGVR := explorer.GVKGVRMap[mcSVC.GroupVersionKind()]
 	stsGVR := explorer.GVKGVRMap[mcSTS.GroupVersionKind()]
+	cmGVR := explorer.GVKGVRMap[mcCM.GroupVersionKind()]
 	appGVR := explorer.GVKGVRMap[applicationGVK]
 
 	svc := mcSVC.DeepCopy()
@@ -173,6 +188,7 @@ func TestApplicationDiscovery(t *testing.T) {
 			t.Fail()
 		}
 	}()
+
 	sts := mcSTS.DeepCopy()
 	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
 	uc = &unstructured.Unstructured{}
@@ -185,13 +201,27 @@ func TestApplicationDiscovery(t *testing.T) {
 			t.Fail()
 		}
 	}()
+
+	cm := mcCM.DeepCopy()
+	cmUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
+	uc = &unstructured.Unstructured{}
+	uc.SetUnstructuredContent(cmUC)
+	_, err = mcDynamicClient.Resource(cmGVR).Namespace(clusterNamespace).Create(uc, metav1.CreateOptions{})
+	g.Expect(err).ShouldNot(HaveOccurred())
+	defer func() {
+		if err = mcDynamicClient.Resource(cmGVR).Namespace(clusterNamespace).Delete(cm.Name, &metav1.DeleteOptions{}); err != nil {
+			klog.Error(err)
+			t.Fail()
+		}
+	}()
+
 	app := mcApp.DeepCopy()
 	app.Annotations = make(map[string]string)
 	app.Annotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
 	appUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(app)
 	uc = &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(appUC)
-	_, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Create(uc, metav1.CreateOptions{})
+	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Create(uc, metav1.CreateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 	defer func() {
 		if err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Delete(app.Name, &metav1.DeleteOptions{}); err != nil {
@@ -204,6 +234,7 @@ func TestApplicationDiscovery(t *testing.T) {
 
 	// retrieve deployablelist on hub
 	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(metav1.ListOptions{})
+	// expect only 2 deployables, as the configmap was created in another namespace
 	g.Expect(dplList.Items).To(HaveLen(2))
 	kinds := [2]string{"Service", "StatefulSet"}
 
@@ -222,4 +253,40 @@ func TestApplicationDiscovery(t *testing.T) {
 		g.Expect(labels).To(Not(BeNil()))
 		g.Expect(labels[appLabelSelector]).To(Equal(applicationName))
 	}
+
+	// update application by adding a random annotation.
+	annotations, _, _ := unstructured.NestedMap(uc.Object, "metadata", "annotations")
+	annotations["random_annotation_name"] = "random_annotation_value"
+	unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations")
+	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(uc, metav1.UpdateOptions{})
+	g.Expect(err).ShouldNot(HaveOccurred())
+	// wait on app reconcile on MC
+	<-as.(ApplicationSync).UpdateCh
+
+	// update application by adding AnnotationClusterScope.
+	annotations, _, _ = unstructured.NestedMap(uc.Object, "metadata", "annotations")
+	annotations[hdplv1alpha1.AnnotationClusterScope] = "true"
+	unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations")
+	unstructured.SetNestedField(uc.Object, true, "spec", "addOwnerRef")
+	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(uc, metav1.UpdateOptions{})
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	// wait on app reconcile on MC
+	<-as.(ApplicationSync).UpdateCh
+
+	// retrieve deployablelist on hub
+	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(metav1.ListOptions{})
+	// expect 3 deployables, as the configmap is covered now by AnnotationClusterScope
+	g.Expect(dplList.Items).To(HaveLen(3))
+
+	// update application by removing the discovery annotation
+	annotations, _, _ = unstructured.NestedMap(uc.Object, "metadata", "annotations")
+	delete(annotations, hdplv1alpha1.AnnotationHybridDiscovery)
+	unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations")
+	_, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(uc, metav1.UpdateOptions{})
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	// wait on app reconcile on MC
+	<-as.(ApplicationSync).UpdateCh
+
 }
