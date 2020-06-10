@@ -90,6 +90,15 @@ func (r *ReconcileApplication) isAppDiscoveryEnabled(app *unstructured.Unstructu
 	return true
 }
 
+func (r *ReconcileApplication) isDiscoveryClusterScoped(obj *unstructured.Unstructured) bool {
+	if _, enabled := obj.GetAnnotations()[hdplv1alpha1.AnnotationClusterScope]; !enabled ||
+		obj.GetAnnotations()[hdplv1alpha1.AnnotationClusterScope] != "true" {
+		return false
+	}
+
+	return true
+}
+
 func (r *ReconcileApplication) Start() {
 	r.Stop()
 
@@ -197,7 +206,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 					klog.V(packageInfoLogLevel).Info("Successfully found GVR ", gvr.String())
 
 					var objlist *unstructured.UnstructuredList
-					if _, ok := app.GetAnnotations()[hdplv1alpha1.AnnotationClusterScope]; ok {
+					if r.isDiscoveryClusterScoped(obj) {
 						// retrieve all components, cluster wide
 						objlist, err = r.Explorer.DynamicMCClient.Resource(gvr).List(
 							metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})

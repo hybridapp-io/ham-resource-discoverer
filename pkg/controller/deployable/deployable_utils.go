@@ -171,48 +171,6 @@ func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstr
 	return dpl
 }
 
-// func patchObject(dpl *unstructured.Unstructured, metaobj *unstructured.Unstructured, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
-// 	klog.V(packageInfoLogLevel).Info("Patching object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
-
-// 	// if the object is controlled by other deployable, do not change its ownership
-// 	if hostingAnnotation, ok := (metaobj.GetAnnotations()[dplv1.AnnotationHosting]); ok {
-// 		var owner = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
-// 		if hostingAnnotation != owner {
-// 			klog.V(packageInfoLogLevel).Info("Not changing the ownership of ", metaobj.GetNamespace()+"/"+metaobj.GetName(),
-// 				" to ", owner, " as it is already owned by deployable ", hostingAnnotation)
-// 			return metaobj, nil
-// 		}
-// 	}
-// 	objgvr := explorer.GVKGVRMap[metaobj.GroupVersionKind()]
-
-// 	ucobj, err := explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Get(metaobj.GetName(), metav1.GetOptions{})
-// 	if err != nil {
-// 		if errors.IsNotFound(err) {
-// 			return nil, nil
-// 		}
-
-// 		klog.Error("Failed to patch managed cluster object with error: ", err)
-
-// 		return nil, err
-// 	}
-
-// 	annotations := ucobj.GetAnnotations()
-// 	if annotations == nil {
-// 		annotations = make(map[string]string)
-// 	}
-
-// 	annotations[subv1.AnnotationHosting] = "/"
-// 	annotations[subv1.AnnotationSyncSource] = "subnsdpl-/"
-// 	annotations[dplv1.AnnotationHosting] = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
-
-// 	ucobj.SetAnnotations(annotations)
-// 	ucobj, err = explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Update(ucobj, metav1.UpdateOptions{})
-// 	if err == nil {
-// 		klog.V(packageInfoLogLevel).Info("Successfully patched object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
-// 	}
-// 	return ucobj, err
-// }
-
 func locateDeployableForObject(metaobj metav1.Object, explorer *utils.Explorer) (*dplv1.Deployable, error) {
 	gvr := explorer.GVKGVRMap[deployableGVK]
 
@@ -221,8 +179,6 @@ func locateDeployableForObject(metaobj metav1.Object, explorer *utils.Explorer) 
 		klog.Error("Failed to list deployable objects from hub cluster namespace with error:", err)
 		return nil, err
 	}
-
-	var objdpl *dplv1.Deployable
 
 	for _, dpl := range dpllist.Items {
 		annotations := dpl.GetAnnotations()
@@ -237,11 +193,13 @@ func locateDeployableForObject(metaobj metav1.Object, explorer *utils.Explorer) 
 
 		srcobj, ok := annotations[corev1alpha1.SourceObject]
 		if ok && srcobj == key {
+			objdpl := &dplv1.Deployable{}
+			runtime.DefaultUnstructuredConverter.FromUnstructured(dpl.Object, objdpl)
 			return objdpl, nil
 		}
 	}
 
-	return objdpl, nil
+	return nil, nil
 }
 
 func locateObjectForDeployable(dpl metav1.Object, explorer *utils.Explorer) (*unstructured.Unstructured, error) {

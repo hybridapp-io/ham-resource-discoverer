@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ocm
+package deployable
 
 import (
 	"testing"
@@ -23,13 +23,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/deployable"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer/ocm"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
@@ -37,18 +35,6 @@ import (
 )
 
 var (
-	deployableGVK = schema.GroupVersionKind{
-		Group:   dplv1.SchemeGroupVersion.Group,
-		Version: dplv1.SchemeGroupVersion.Version,
-		Kind:    "Deployable",
-	}
-
-	deployableGVR = schema.GroupVersionResource{
-		Group:    dplv1.SchemeGroupVersion.Group,
-		Version:  dplv1.SchemeGroupVersion.Version,
-		Resource: "deployables",
-	}
-
 	mcName = "managedcluster"
 
 	mcServiceName = "mysql-svc"
@@ -148,7 +134,7 @@ func TestNoGroupObject(t *testing.T) {
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
 	hubSynchronizer := &ocm.HubSynchronizer{}
 
-	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -229,7 +215,7 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
 	hubSynchronizer := &ocm.HubSynchronizer{}
 
-	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -329,7 +315,7 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
 	hubSynchronizer := &ocm.HubSynchronizer{}
 
-	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -428,7 +414,7 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
 	hubSynchronizer := &ocm.HubSynchronizer{}
 
-	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -532,7 +518,7 @@ func TestDeployableCleanup(t *testing.T) {
 
 	hubSynchronizer := &ocm.HubSynchronizer{}
 
-	rec, _ := deployable.NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
 	ds := SetupDeployableSync(rec)
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ocm
+package deployable
 
 import (
 	"log"
@@ -30,7 +30,6 @@ import (
 	"github.com/onsi/gomega"
 
 	apis "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis"
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/deployable"
 )
 
 var (
@@ -42,8 +41,8 @@ func TestMain(m *testing.M) {
 	// setup the managed cluster environment
 	managedCluster := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "deploy", "crds"),
-			filepath.Join("..", "..", "..", "..", "hack", "test"),
+			filepath.Join("..", "..", "..", "deploy", "crds"),
+			filepath.Join("..", "..", "..", "hack", "test"),
 		},
 	}
 
@@ -60,8 +59,8 @@ func TestMain(m *testing.M) {
 	// setup the hub cluster environment
 	hubCluster := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "deploy", "crds"),
-			filepath.Join("..", "..", "..", "..", "hack", "test"),
+			filepath.Join("..", "..", "..", "deploy", "crds"),
+			filepath.Join("..", "..", "..", "hack", "test"),
 		},
 	}
 
@@ -83,7 +82,7 @@ func TestMain(m *testing.M) {
 const waitgroupDelta = 1
 
 type DeployableSync struct {
-	*deployable.ReconcileDeployable
+	*ReconcileDeployable
 	createCh chan interface{}
 	updateCh chan interface{}
 	deleteCh chan interface{}
@@ -147,7 +146,7 @@ func (ds DeployableSync) SyncRemoveDeployable(oldObj interface{}) {
 
 }
 
-func SetupDeployableSync(inner *deployable.ReconcileDeployable) deployable.ReconcileDeployableInterface {
+func SetupDeployableSync(inner *ReconcileDeployable) ReconcileDeployableInterface {
 	cCh := make(chan interface{}, 5)
 	uCh := make(chan interface{}, 5)
 	dCh := make(chan interface{}, 5)
