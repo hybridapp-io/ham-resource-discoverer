@@ -290,3 +290,41 @@ func TestApplicationDiscovery(t *testing.T) {
 	<-as.(ApplicationSync).UpdateCh
 
 }
+
+func TestGenericControllerReconcile(t *testing.T) {
+	g := NewWithT(t)
+	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	hubSynchronizer := &ocm.HubSynchronizer{}
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+
+	mcDynamicClient := explorer.DynamicMCClient
+	appGVR := explorer.GVKGVRMap[applicationGVK]
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	rec.Start()
+	app := mcApp.DeepCopy()
+	app.Annotations = make(map[string]string)
+	app.Annotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
+	appUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(app)
+	uc := &unstructured.Unstructured{}
+	uc.SetUnstructuredContent(appUC)
+	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Create(uc, metav1.CreateOptions{})
+	g.Expect(err).ShouldNot(HaveOccurred())
+	defer func() {
+		if err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Delete(app.Name, &metav1.DeleteOptions{}); err != nil {
+			klog.Error(err)
+			t.Fail()
+		}
+	}()
+
+	defer rec.Stop()
+}
