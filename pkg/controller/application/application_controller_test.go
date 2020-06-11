@@ -317,7 +317,7 @@ func TestGenericControllerReconcile(t *testing.T) {
 	appUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(app)
 	uc := &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(appUC)
-	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Create(uc, metav1.CreateOptions{})
+	_, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Create(uc, metav1.CreateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 	defer func() {
 		if err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Delete(app.Name, &metav1.DeleteOptions{}); err != nil {

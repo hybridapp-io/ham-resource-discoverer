@@ -676,6 +676,10 @@ func TestGenericControllerReconcile(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	if err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
 	hubSynchronizer := &ocm.HubSynchronizer{}
 	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
