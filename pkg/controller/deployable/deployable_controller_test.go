@@ -537,8 +537,9 @@ func TestSyncDeployable(t *testing.T) {
 
 	// create the local resource
 	sts := mcSTS.DeepCopy()
-
 	stsGVR := explorer.GVKGVRMap[sts.GroupVersionKind()]
+	sts.Annotations = make(map[string]string)
+	sts.Annotations["kubectl.kubernetes.io/last-applied-configuration"] = "to_be_removed"
 
 	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
 	uc := &unstructured.Unstructured{}
@@ -558,8 +559,27 @@ func TestSyncDeployable(t *testing.T) {
 	err = SyncDeployable(uc, explorer, hubSynchronizer)
 	g.Expect(err).ShouldNot(HaveOccurred())
 
+	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(metav1.ListOptions{})
+	g.Expect(dplList.Items).To(HaveLen(1))
+
 	dpl, _ := locateDeployableForObject(uc, explorer)
 	g.Expect(dpl).NotTo(BeNil())
+
+	err = SyncDeployable(uc, explorer, hubSynchronizer)
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	// sync again and expect existing deployable to be ignored
+	uc, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(uc.GetName(), metav1.GetOptions{})
+	if err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+
+	err = SyncDeployable(uc, explorer, hubSynchronizer)
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(metav1.ListOptions{})
+	g.Expect(dplList.Items).To(HaveLen(1))
 
 	if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(dpl.GetName(), &metav1.DeleteOptions{}); err != nil {
 		klog.Error(err)
@@ -648,4 +668,41 @@ func TestDeployableCleanup(t *testing.T) {
 	dpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
 
 	g.Expect(dpl).To(BeNil())
+}
+
+func TestGenericControllerReconcile(t *testing.T) {
+	g := NewWithT(t)
+	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	if err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+	hubSynchronizer := &ocm.HubSynchronizer{}
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+
+	hubDynamicClient := explorer.DynamicHubClient
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	rec.Start()
+	dplObj := mcSTSDeployable.DeepCopy()
+	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dplObj)
+	uc := &unstructured.Unstructured{}
+	uc.SetUnstructuredContent(dplUC)
+	uc.SetGroupVersionKind(deployableGVK)
+
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+
+	defer rec.Stop()
 }
