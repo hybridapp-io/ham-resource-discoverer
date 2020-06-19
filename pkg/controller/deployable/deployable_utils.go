@@ -92,7 +92,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 		uc.SetUnstructuredContent(ucContent)
 		uc.SetGroupVersionKind(deployableGVK)
 
-		uc, err := explorer.DynamicHubClient.Resource(explorer.GVKGVRMap[deployableGVK]).Namespace(refreshedDpl.Namespace).Create(uc, metav1.CreateOptions{})
+		uc, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(refreshedDpl.Namespace).Create(uc, metav1.CreateOptions{})
 		if err != nil {
 			klog.Error("Failed to sync deployable ", dpl.Namespace+"/"+dpl.Name)
 			return err
@@ -172,9 +172,7 @@ func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstr
 }
 
 func locateDeployableForObject(metaobj metav1.Object, explorer *utils.Explorer) (*dplv1.Deployable, error) {
-	gvr := explorer.GVKGVRMap[deployableGVK]
-
-	dpllist, err := explorer.DynamicHubClient.Resource(gvr).Namespace(explorer.Cluster.Namespace).List(metav1.ListOptions{})
+	dpllist, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(explorer.Cluster.Namespace).List(metav1.ListOptions{})
 	if err != nil {
 		klog.Error("Failed to list deployable objects from hub cluster namespace with error:", err)
 		return nil, err
