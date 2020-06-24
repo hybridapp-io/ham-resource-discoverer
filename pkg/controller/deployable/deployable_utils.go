@@ -99,7 +99,6 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 		}
 		klog.V(packageInfoLogLevel).Info("Successfully added deployable ", uc.GetNamespace()+"/"+uc.GetName(),
 			" for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
-
 	} else if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		uc, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
 		if err != nil {
@@ -162,7 +161,8 @@ func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstr
 		annotations = make(map[string]string)
 	}
 
-	annotations[corev1alpha1.SourceObject] = types.NamespacedName{Namespace: metaobj.GetNamespace(), Name: metaobj.GetName()}.String()
+	annotations[corev1alpha1.SourceObject] = metaobj.GroupVersionKind().GroupVersion().String() +
+		"/" + metaobj.GetKind() + "/" + types.NamespacedName{Namespace: metaobj.GetNamespace(), Name: metaobj.GetName()}.String()
 	annotations[dplv1.AnnotationManagedCluster] = explorer.Cluster.String()
 	annotations[dplv1.AnnotationLocal] = trueCondition
 	annotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
@@ -171,7 +171,7 @@ func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstr
 	return dpl
 }
 
-func locateDeployableForObject(metaobj metav1.Object, explorer *utils.Explorer) (*dplv1.Deployable, error) {
+func locateDeployableForObject(metaobj *unstructured.Unstructured, explorer *utils.Explorer) (*dplv1.Deployable, error) {
 	dpllist, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(explorer.Cluster.Namespace).List(metav1.ListOptions{})
 	if err != nil {
 		klog.Error("Failed to list deployable objects from hub cluster namespace with error:", err)
@@ -184,7 +184,7 @@ func locateDeployableForObject(metaobj metav1.Object, explorer *utils.Explorer) 
 			continue
 		}
 
-		key := types.NamespacedName{
+		key := metaobj.GroupVersionKind().GroupVersion().String() + "/" + metaobj.GetKind() + "/" + types.NamespacedName{
 			Namespace: metaobj.GetNamespace(),
 			Name:      metaobj.GetName(),
 		}.String()
