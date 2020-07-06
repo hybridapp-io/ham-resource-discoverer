@@ -17,6 +17,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -34,10 +35,10 @@ var (
 type DeployerSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	Type         string                  `json:"type"`
-	OperatorRef  *corev1.ObjectReference `json:"operatorRef,omitempty"`
-	Capabilities []rbacv1.PolicyRule     `json:"capabilities,omitempty"`
-	ClusterScope bool                    `json:"clusterScope,omitempty"`
+	Type         string                      `json:"type"`
+	OperatorRef  *corev1.ObjectReference     `json:"operatorRef,omitempty"`
+	Capabilities []rbacv1.PolicyRule         `json:"capabilities,omitempty"`
+	Scope        apiextensions.ResourceScope `json:"scope,omitempty"`
 }
 
 // DeployerStatus defines the observed state of Deployer
