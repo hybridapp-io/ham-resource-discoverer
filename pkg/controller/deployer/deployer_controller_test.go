@@ -19,13 +19,13 @@ import (
 	"testing"
 	"time"
 
+	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
 	. "github.com/onsi/gomega"
+	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-
-	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -51,7 +51,8 @@ var (
 			Annotations: map[string]string{corev1alpha1.IsDefaultDeployer: "true"},
 		},
 		Spec: corev1alpha1.DeployerSpec{
-			Type: kubevirtType,
+			Type:  kubevirtType,
+			Scope: apiextensions.ClusterScoped,
 		},
 	}
 

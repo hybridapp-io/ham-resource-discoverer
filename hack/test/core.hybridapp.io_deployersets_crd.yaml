@@ -98,7 +98,7 @@ spec:
                           - verbs
                           type: object
                         type: array
-                      clusterScope:
+                      namespaced:
                         type: boolean
                       operatorRef:
                         description: ObjectReference contains enough information to
