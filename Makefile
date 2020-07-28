@@ -39,7 +39,7 @@ export GOBIN ?= $(GOBIN_DEFAULT)
 TESTARGS_DEFAULT := "-v"
 export TESTARGS ?= $(TESTARGS_DEFAULT)
 DEST := $(GOPATH)/src/$(GIT_HOST)/$(BASE_DIR)
-VERSION := "release-0.0.1"
+VERSION := "v0.0.1"
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
