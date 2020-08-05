@@ -89,6 +89,9 @@ func TestReconcile(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
+	nsHub := nsOnHub.DeepCopy()
+	g.Expect(hubClient.Create(context.TODO(), nsHub)).To(Succeed())
+
 	// Create the Deployer object and expect the Reconcile and Deployment to be created
 	dep := managedClusterDeployer.DeepCopy()
 	g.Expect(managedClusterClient.Create(context.TODO(), dep)).NotTo(HaveOccurred())

@@ -6,28 +6,28 @@ require (
 	github.com/hybridapp-io/ham-deployable-operator v0.0.0-20200727143100-0d48481b58fb
 	github.com/kubernetes-sigs/application v0.8.1
 	github.com/onsi/gomega v1.9.0
-	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200409001040-158722845851
-	github.com/open-cluster-management/multicloud-operators-subscription v0.0.0-20200427133526-eb3986b41290
-	github.com/operator-framework/operator-sdk v0.17.0
+	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200721140654-267157672e39
+	github.com/open-cluster-management/multicloud-operators-subscription v1.0.0-2020-05-12-21-17-19.0.20200721224621-79fd9d450d82
+	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/spf13/pflag v1.0.5
-	k8s.io/api v0.17.4
-	k8s.io/apiextensions-apiserver v0.17.4
-	k8s.io/apimachinery v0.17.4
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/api v0.18.3
+	k8s.io/apiextensions-apiserver v0.18.2
+	k8s.io/apimachinery v0.18.3
+	k8s.io/client-go v13.0.0+incompatible
 	k8s.io/klog v1.0.0
-	sigs.k8s.io/controller-runtime v0.5.2
+	sigs.k8s.io/controller-runtime v0.6.0
 )
 
 // Pinned to kubernetes-1.16.2
 replace (
 	github.com/otiai10/copy => github.com/otiai10/copy v1.0.2
 	github.com/otiai10/mint => github.com/otiai10/mint v1.3.0
-	k8s.io/api => k8s.io/api v0.17.4
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.0.0-20191016113550-5357c4baaf65
-	k8s.io/apimachinery => k8s.io/apimachinery v0.17.4
-	k8s.io/apiserver => k8s.io/apiserver v0.0.0-20191016112112-5190913f932d
+	k8s.io/api => k8s.io/api v0.18.2
+	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.18.2
+	k8s.io/apimachinery => k8s.io/apimachinery v0.18.2
+	k8s.io/apiserver => k8s.io/apiserver v0.18.2
 	k8s.io/cli-runtime => k8s.io/cli-runtime v0.0.0-20191016114015-74ad18325ed5
-	k8s.io/client-go => k8s.io/client-go v0.17.4
+	k8s.io/client-go => k8s.io/client-go v0.18.2
 	k8s.io/cloud-provider => k8s.io/cloud-provider v0.0.0-20191016115326-20453efc2458
 	k8s.io/cluster-bootstrap => k8s.io/cluster-bootstrap v0.0.0-20191016115129-c07a134afb42
 	k8s.io/code-generator => k8s.io/code-generator v0.0.0-20191004115455-8e001e5d1894

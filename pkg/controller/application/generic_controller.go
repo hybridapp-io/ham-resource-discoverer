@@ -15,6 +15,7 @@
 package application
 
 import (
+	"context"
 	"time"
 
 	sigappv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
@@ -208,7 +209,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 					var objlist *unstructured.UnstructuredList
 					if r.isDiscoveryClusterScoped(obj) {
 						// retrieve all components, cluster wide
-						objlist, err = r.Explorer.DynamicMCClient.Resource(gvr).List(
+						objlist, err = r.Explorer.DynamicMCClient.Resource(gvr).List(context.TODO(),
 							metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})
 						if len(objlist.Items) == 0 {
 							// we still want to create the deployables for the resources we find on managed cluster ,
@@ -219,7 +220,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 
 					} else {
 						// retrieve only namespaced components
-						objlist, err = r.Explorer.DynamicMCClient.Resource(gvr).Namespace(obj.GetNamespace()).List(
+						objlist, err = r.Explorer.DynamicMCClient.Resource(gvr).Namespace(obj.GetNamespace()).List(context.TODO(),
 							metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})
 						if len(objlist.Items) == 0 {
 							klog.Info("Could not find any managed cluster resources for application component with kind ",

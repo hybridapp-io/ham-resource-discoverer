@@ -15,6 +15,7 @@
 package deployable
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -23,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -36,6 +38,11 @@ import (
 
 var (
 	mcName = "managedcluster"
+	mcNS   = v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: mcName,
+		},
+	}
 
 	mcServiceName = "mysql-svc"
 	mcSTSName     = "wordpress-webserver"
@@ -133,7 +140,7 @@ func TestNoGroupObject(t *testing.T) {
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
 	hubSynchronizer := &ocm.HubSynchronizer{}
-
+	c := mgr.GetClient()
 	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 
 	ds := SetupDeployableSync(rec)
@@ -151,6 +158,20 @@ func TestNoGroupObject(t *testing.T) {
 	mcDynamicClient := explorer.DynamicMCClient
 	hubDynamicClient := explorer.DynamicHubClient
 
+	nsMC := mcNS.DeepCopy()
+	g.Expect(c.Create(context.TODO(), nsMC)).To(Succeed())
+
+	nsHub := mcNS.DeepCopy()
+	nsGVR := schema.GroupVersionResource{
+		Version:  "v1",
+		Resource: "namespaces",
+	}
+	ucUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(nsHub)
+	ucNS := &unstructured.Unstructured{}
+	ucNS.SetUnstructuredContent(ucUC)
+	_, err = hubDynamicClient.Resource(nsGVR).Create(context.TODO(), ucNS, metav1.CreateOptions{})
+	g.Expect(err).ShouldNot(HaveOccurred())
+
 	// create the local resource
 	svc := mcService.DeepCopy()
 
@@ -160,13 +181,13 @@ func TestNoGroupObject(t *testing.T) {
 	uc := &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(svcUC)
 
-	if _, err = mcDynamicClient.Resource(svcGVR).Namespace(svc.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = mcDynamicClient.Resource(svcGVR).Namespace(svc.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = mcDynamicClient.Resource(svcGVR).Namespace(svc.Namespace).Delete(svc.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = mcDynamicClient.Resource(svcGVR).Namespace(svc.Namespace).Delete(context.TODO(), svc.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -179,19 +200,19 @@ func TestNoGroupObject(t *testing.T) {
 	uc.SetUnstructuredContent(dplUC)
 	uc.SetGroupVersionKind(deployableGVK)
 	deployablegvr := explorer.GVKGVRMap[deployableGVK]
-	if _, err := hubDynamicClient.Resource(deployablegvr).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err := hubDynamicClient.Resource(deployablegvr).Namespace(dpl.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(dpl.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
 	}()
 
-	if _, err := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(mcSVCDeployable.Name, metav1.GetOptions{}); err != nil {
+	if _, err := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), mcSVCDeployable.Name, metav1.GetOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -200,7 +221,7 @@ func TestNoGroupObject(t *testing.T) {
 	<-ds.(DeployableSync).updateCh
 
 	// validate the annotation/labels created on the MC object
-	newSVC, _ := mcDynamicClient.Resource(svcGVR).Namespace(svc.Namespace).Get(svc.Name, metav1.GetOptions{})
+	newSVC, _ := mcDynamicClient.Resource(svcGVR).Namespace(svc.Namespace).Get(context.TODO(), svc.Name, metav1.GetOptions{})
 	annotations := newSVC.GetAnnotations()
 	g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(dpl.Namespace + "/" + dpl.Name))
 	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
@@ -241,13 +262,13 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	uc := &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(stsUC)
 
-	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(sts.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(context.TODO(), sts.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -260,13 +281,13 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	uc.SetUnstructuredContent(dplUC)
 	uc.SetGroupVersionKind(deployableGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(dpl.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -277,15 +298,15 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	<-ds.(DeployableSync).updateCh
 
 	// remove the object subscription anno
-	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
-	newSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
+	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), dpl.Name, metav1.GetOptions{})
+	newSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 
 	stsAnnotations := newSTS.GetAnnotations()
 	delete(stsAnnotations, dplv1.AnnotationHosting)
 	delete(stsAnnotations, subv1.AnnotationHosting)
 	delete(stsAnnotations, subv1.AnnotationSyncSource)
 	newSTS.SetAnnotations(stsAnnotations)
-	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Update(newSTS, metav1.UpdateOptions{}); err != nil {
+	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Update(context.TODO(), newSTS, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -294,13 +315,13 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	dplAnnotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
 	newDpl.SetAnnotations(dplAnnotations)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(newDpl, metav1.UpdateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(context.TODO(), newDpl, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 	<-ds.(DeployableSync).updateCh
 
-	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
+	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 	annotations := updatedSTS.GetAnnotations()
 	g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(dpl.Namespace + "/" + dpl.Name))
 	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
@@ -341,13 +362,13 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	uc := &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(stsUC)
 
-	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(sts.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(context.TODO(), sts.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -360,13 +381,13 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	uc.SetUnstructuredContent(dplUC)
 	uc.SetGroupVersionKind(deployableGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(dpl.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -377,15 +398,15 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	<-ds.(DeployableSync).updateCh
 
 	// remove the object subscription anno
-	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
-	newSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
+	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), dpl.Name, metav1.GetOptions{})
+	newSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 
 	stsAnnotations := newSTS.GetAnnotations()
 	delete(stsAnnotations, dplv1.AnnotationHosting)
 	delete(stsAnnotations, subv1.AnnotationHosting)
 	delete(stsAnnotations, subv1.AnnotationSyncSource)
 	newSTS.SetAnnotations(stsAnnotations)
-	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Update(newSTS, metav1.UpdateOptions{}); err != nil {
+	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Update(context.TODO(), newSTS, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -393,13 +414,13 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	dplAnnotations := newDpl.GetAnnotations()
 	newDpl.SetAnnotations(dplAnnotations)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(newDpl, metav1.UpdateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(context.TODO(), newDpl, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	// discovery flag has been turned into completed from enabled, so no changes on the resource expected
-	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
+	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 	annotations := updatedSTS.GetAnnotations()
 	g.Expect(annotations[dplv1.AnnotationHosting]).To(BeEmpty())
 	g.Expect(annotations[subv1.AnnotationHosting]).To(BeEmpty())
@@ -440,13 +461,13 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	uc := &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(stsUC)
 
-	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(sts.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(context.TODO(), sts.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -459,13 +480,13 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	uc1.SetUnstructuredContent(dpl1UC)
 	uc1.SetGroupVersionKind(deployableGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl1.Namespace).Create(uc1, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl1.Namespace).Create(context.TODO(), uc1, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl1.Namespace).Delete(dpl1.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl1.Namespace).Delete(context.TODO(), dpl1.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -483,13 +504,13 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	uc2.SetUnstructuredContent(dpl2UC)
 	uc2.SetGroupVersionKind(deployableGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl2.Namespace).Create(uc2, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl2.Namespace).Create(context.TODO(), uc2, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl2.Namespace).Delete(dpl2.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl2.Namespace).Delete(context.TODO(), dpl2.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -498,7 +519,7 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	// wait for the deployable sync to come through on hub
 	<-ds.(DeployableSync).createCh
 
-	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
+	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 	annotations := updatedSTS.GetAnnotations()
 	g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(dpl1.Namespace + "/" + dpl1.Name))
 	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
@@ -545,12 +566,12 @@ func TestSyncDeployable(t *testing.T) {
 	uc := &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(stsUC)
 
-	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 	defer func() {
-		if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(sts.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(context.TODO(), sts.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -559,7 +580,7 @@ func TestSyncDeployable(t *testing.T) {
 	err = SyncDeployable(uc, explorer, hubSynchronizer)
 	g.Expect(err).ShouldNot(HaveOccurred())
 
-	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(metav1.ListOptions{})
+	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
 	g.Expect(dplList.Items).To(HaveLen(1))
 
 	dpl, _ := locateDeployableForObject(uc, explorer)
@@ -569,7 +590,7 @@ func TestSyncDeployable(t *testing.T) {
 	g.Expect(err).ShouldNot(HaveOccurred())
 
 	// sync again and expect existing deployable to be ignored
-	uc, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(uc.GetName(), metav1.GetOptions{})
+	uc, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), uc.GetName(), metav1.GetOptions{})
 	if err != nil {
 		klog.Error(err)
 		t.Fail()
@@ -578,10 +599,10 @@ func TestSyncDeployable(t *testing.T) {
 	err = SyncDeployable(uc, explorer, hubSynchronizer)
 	g.Expect(err).ShouldNot(HaveOccurred())
 
-	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(metav1.ListOptions{})
+	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
 	g.Expect(dplList.Items).To(HaveLen(1))
 
-	if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(dpl.GetName(), &metav1.DeleteOptions{}); err != nil {
+	if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.GetName(), metav1.DeleteOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -627,7 +648,7 @@ func TestDeployableCleanup(t *testing.T) {
 	uc := &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(stsUC)
 
-	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -639,7 +660,7 @@ func TestDeployableCleanup(t *testing.T) {
 	uc.SetUnstructuredContent(dplUC)
 	uc.SetGroupVersionKind(deployableGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -649,23 +670,23 @@ func TestDeployableCleanup(t *testing.T) {
 	<-ds.(DeployableSync).updateCh
 
 	// delete the sts
-	if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(sts.Name, &metav1.DeleteOptions{}); err != nil {
+	if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(context.TODO(), sts.Name, metav1.DeleteOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	// trigger reconciliation on deployable and make sure it gets cleaned up
-	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
+	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Get(context.TODO(), dplObj.Name, metav1.GetOptions{})
 	dplAnnotations := newDpl.GetAnnotations()
 	dplAnnotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
 	newDpl.SetAnnotations(dplAnnotations)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(newDpl.GetNamespace()).Update(newDpl, metav1.UpdateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(newDpl.GetNamespace()).Update(context.TODO(), newDpl, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 	<-ds.(DeployableSync).updateCh
-	dpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Get(dplObj.Name, metav1.GetOptions{})
+	dpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Get(context.TODO(), dplObj.Name, metav1.GetOptions{})
 
 	g.Expect(dpl).To(BeNil())
 }
@@ -699,7 +720,7 @@ func TestGenericControllerReconcile(t *testing.T) {
 	uc.SetUnstructuredContent(dplUC)
 	uc.SetGroupVersionKind(deployableGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Create(uc, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
