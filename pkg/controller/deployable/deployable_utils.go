@@ -15,6 +15,7 @@
 package deployable
 
 import (
+	"context"
 	"reflect"
 	"strings"
 
@@ -92,7 +93,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 		uc.SetUnstructuredContent(ucContent)
 		uc.SetGroupVersionKind(deployableGVK)
 
-		uc, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(refreshedDpl.Namespace).Create(uc, metav1.CreateOptions{})
+		uc, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(refreshedDpl.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{})
 		if err != nil {
 			klog.Error("Failed to sync deployable ", dpl.Namespace+"/"+dpl.Name)
 			return err
@@ -100,7 +101,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 		klog.V(packageInfoLogLevel).Info("Successfully added deployable ", uc.GetNamespace()+"/"+uc.GetName(),
 			" for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 	} else if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		uc, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(dpl.Name, metav1.GetOptions{})
+		uc, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), dpl.Name, metav1.GetOptions{})
 		if err != nil {
 			klog.Error("Failed to retrieve deployable from hub ", dpl.Namespace+"/"+dpl.Name)
 			return err
@@ -124,7 +125,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 			uc.SetAnnotations(annotations)
 
 			uc.SetGroupVersionKind(deployableGVK)
-			uc, err = explorer.DynamicHubClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(uc, metav1.UpdateOptions{})
+			uc, err = explorer.DynamicHubClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(context.TODO(), uc, metav1.UpdateOptions{})
 			if err != nil {
 				klog.Error("Failed to update deployable ", dpl.Namespace+"/"+dpl.Name, ". Retrying... ")
 				return err
@@ -172,7 +173,7 @@ func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstr
 }
 
 func locateDeployableForObject(metaobj *unstructured.Unstructured, explorer *utils.Explorer) (*dplv1.Deployable, error) {
-	dpllist, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(explorer.Cluster.Namespace).List(metav1.ListOptions{})
+	dpllist, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(explorer.Cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		klog.Error("Failed to list deployable objects from hub cluster namespace with error:", err)
 		return nil, err
@@ -247,7 +248,7 @@ func locateObjectForDeployable(dpl metav1.Object, explorer *utils.Explorer) (*un
 		return nil, err
 	}
 
-	obj, err := explorer.DynamicMCClient.Resource(gvr).Namespace(namespace).Get(name, metav1.GetOptions{})
+	obj, err := explorer.DynamicMCClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if obj == nil || err != nil {
 		if errors.IsNotFound(err) {
 			klog.Error("Cannot find the wrapped object for deployable ", dpl.GetNamespace()+"/"+dpl.GetName())

@@ -15,6 +15,7 @@
 package deployable
 
 import (
+	"context"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -207,7 +208,7 @@ func (r *ReconcileDeployable) syncDeployable(metaobj metav1.Object) {
 	if tpl == nil {
 		klog.Info("Cleaning up orphaned deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 		// remove deployable from hub
-		err = r.Explorer.DynamicHubClient.Resource(deployableGVR).Namespace(metaobj.GetNamespace()).Delete(metaobj.GetName(), &metav1.DeleteOptions{})
+		err = r.Explorer.DynamicHubClient.Resource(deployableGVR).Namespace(metaobj.GetNamespace()).Delete(context.TODO(), metaobj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			klog.Error("Failed to delete orphaned deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 		}

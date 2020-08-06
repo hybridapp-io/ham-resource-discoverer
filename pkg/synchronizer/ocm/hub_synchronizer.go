@@ -14,6 +14,8 @@
 package ocm
 
 import (
+	"context"
+
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -50,7 +52,7 @@ func (h *HubSynchronizer) PatchManagedClusterObject(explorer *utils.Explorer, dp
 	}
 	objgvr := explorer.GVKGVRMap[metaobj.GroupVersionKind()]
 
-	ucobj, err := explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Get(metaobj.GetName(), metav1.GetOptions{})
+	ucobj, err := explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Get(context.TODO(), metaobj.GetName(), metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil
@@ -71,7 +73,7 @@ func (h *HubSynchronizer) PatchManagedClusterObject(explorer *utils.Explorer, dp
 	annotations[dplv1.AnnotationHosting] = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
 
 	ucobj.SetAnnotations(annotations)
-	ucobj, err = explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Update(ucobj, metav1.UpdateOptions{})
+	ucobj, err = explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Update(context.TODO(), ucobj, metav1.UpdateOptions{})
 	if err == nil {
 		klog.V(packageInfoLogLevel).Info("Successfully patched object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 	}

@@ -15,6 +15,7 @@
 package application
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -52,6 +53,18 @@ var (
 	mcNamespace      = "managedcluster"
 	userNamespace    = "default"
 	clusterNamespace = "clusterns"
+
+	clusterNS = v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: clusterNamespace,
+		},
+	}
+
+	mcNS = v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: mcNamespace,
+		},
+	}
 
 	cluster = types.NamespacedName{
 		Name:      mcNamespace,
@@ -155,6 +168,7 @@ func TestApplicationDiscovery(t *testing.T) {
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
 	hubSynchronizer := &ocm.HubSynchronizer{}
+	c := mgr.GetClient()
 	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
 	as := SetupApplicationSync(rec)
 
@@ -176,14 +190,29 @@ func TestApplicationDiscovery(t *testing.T) {
 	cmGVR := explorer.GVKGVRMap[mcCM.GroupVersionKind()]
 	appGVR := explorer.GVKGVRMap[applicationGVK]
 
+	cNS := clusterNS.DeepCopy()
+	g.Expect(c.Create(context.TODO(), cNS)).To(Succeed())
+
+	mcNS := mcNS.DeepCopy()
+
+	nsGVR := schema.GroupVersionResource{
+		Version:  "v1",
+		Resource: "namespaces",
+	}
+	ucUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(mcNS)
+	ucNS := &unstructured.Unstructured{}
+	ucNS.SetUnstructuredContent(ucUC)
+	_, err = hubDynamicClient.Resource(nsGVR).Create(context.TODO(), ucNS, metav1.CreateOptions{})
+	g.Expect(err).ShouldNot(HaveOccurred())
+
 	svc := mcSVC.DeepCopy()
 	svcUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(svc)
 	uc := &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(svcUC)
-	_, err = mcDynamicClient.Resource(svcGVR).Namespace(userNamespace).Create(uc, metav1.CreateOptions{})
+	_, err = mcDynamicClient.Resource(svcGVR).Namespace(userNamespace).Create(context.TODO(), uc, metav1.CreateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 	defer func() {
-		if err = mcDynamicClient.Resource(svcGVR).Namespace(userNamespace).Delete(svc.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = mcDynamicClient.Resource(svcGVR).Namespace(userNamespace).Delete(context.TODO(), svc.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -193,10 +222,10 @@ func TestApplicationDiscovery(t *testing.T) {
 	stsUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
 	uc = &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(stsUC)
-	_, err = mcDynamicClient.Resource(stsGVR).Namespace(userNamespace).Create(uc, metav1.CreateOptions{})
+	_, err = mcDynamicClient.Resource(stsGVR).Namespace(userNamespace).Create(context.TODO(), uc, metav1.CreateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 	defer func() {
-		if err = mcDynamicClient.Resource(stsGVR).Namespace(userNamespace).Delete(sts.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = mcDynamicClient.Resource(stsGVR).Namespace(userNamespace).Delete(context.TODO(), sts.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -206,10 +235,10 @@ func TestApplicationDiscovery(t *testing.T) {
 	cmUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
 	uc = &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(cmUC)
-	_, err = mcDynamicClient.Resource(cmGVR).Namespace(clusterNamespace).Create(uc, metav1.CreateOptions{})
+	_, err = mcDynamicClient.Resource(cmGVR).Namespace(clusterNamespace).Create(context.TODO(), uc, metav1.CreateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 	defer func() {
-		if err = mcDynamicClient.Resource(cmGVR).Namespace(clusterNamespace).Delete(cm.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = mcDynamicClient.Resource(cmGVR).Namespace(clusterNamespace).Delete(context.TODO(), cm.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -221,10 +250,10 @@ func TestApplicationDiscovery(t *testing.T) {
 	appUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(app)
 	uc = &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(appUC)
-	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Create(uc, metav1.CreateOptions{})
+	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Create(context.TODO(), uc, metav1.CreateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 	defer func() {
-		if err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Delete(app.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Delete(context.TODO(), app.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
@@ -233,7 +262,7 @@ func TestApplicationDiscovery(t *testing.T) {
 	<-as.(ApplicationSync).CreateCh
 
 	// retrieve deployablelist on hub
-	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(metav1.ListOptions{})
+	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
 	// expect only 2 deployables, as the configmap was created in another namespace
 	g.Expect(dplList.Items).To(HaveLen(2))
 	kinds := [2]string{"Service", "StatefulSet"}
@@ -258,7 +287,7 @@ func TestApplicationDiscovery(t *testing.T) {
 	annotations, _, _ := unstructured.NestedMap(uc.Object, "metadata", "annotations")
 	annotations["random_annotation_name"] = "random_annotation_value"
 	unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations")
-	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(uc, metav1.UpdateOptions{})
+	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(context.TODO(), uc, metav1.UpdateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 	// wait on app reconcile on MC
 	<-as.(ApplicationSync).UpdateCh
@@ -268,14 +297,14 @@ func TestApplicationDiscovery(t *testing.T) {
 	annotations[hdplv1alpha1.AnnotationClusterScope] = "true"
 	unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations")
 	unstructured.SetNestedField(uc.Object, true, "spec", "addOwnerRef")
-	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(uc, metav1.UpdateOptions{})
+	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(context.TODO(), uc, metav1.UpdateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 
 	// wait on app reconcile on MC
 	<-as.(ApplicationSync).UpdateCh
 
 	// retrieve deployablelist on hub
-	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(metav1.ListOptions{})
+	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
 	// expect 3 deployables, as the configmap is covered now by AnnotationClusterScope
 	g.Expect(dplList.Items).To(HaveLen(3))
 
@@ -283,7 +312,7 @@ func TestApplicationDiscovery(t *testing.T) {
 	annotations, _, _ = unstructured.NestedMap(uc.Object, "metadata", "annotations")
 	delete(annotations, hdplv1alpha1.AnnotationHybridDiscovery)
 	unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations")
-	_, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(uc, metav1.UpdateOptions{})
+	_, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(context.TODO(), uc, metav1.UpdateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 
 	// wait on app reconcile on MC
@@ -317,10 +346,10 @@ func TestGenericControllerReconcile(t *testing.T) {
 	appUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(app)
 	uc := &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(appUC)
-	_, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Create(uc, metav1.CreateOptions{})
+	_, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Create(context.TODO(), uc, metav1.CreateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 	defer func() {
-		if err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Delete(app.Name, &metav1.DeleteOptions{}); err != nil {
+		if err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Delete(context.TODO(), app.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
