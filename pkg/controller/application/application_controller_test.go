@@ -286,7 +286,11 @@ func TestApplicationDiscovery(t *testing.T) {
 	// update application by adding a random annotation.
 	annotations, _, _ := unstructured.NestedMap(uc.Object, "metadata", "annotations")
 	annotations["random_annotation_name"] = "random_annotation_value"
-	unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations")
+	if err = unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations"); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+
 	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(context.TODO(), uc, metav1.UpdateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 	// wait on app reconcile on MC
@@ -295,8 +299,15 @@ func TestApplicationDiscovery(t *testing.T) {
 	// update application by adding AnnotationClusterScope.
 	annotations, _, _ = unstructured.NestedMap(uc.Object, "metadata", "annotations")
 	annotations[hdplv1alpha1.AnnotationClusterScope] = "true"
-	unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations")
-	unstructured.SetNestedField(uc.Object, true, "spec", "addOwnerRef")
+	if err = unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations"); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+	if err = unstructured.SetNestedField(uc.Object, true, "spec", "addOwnerRef"); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+
 	uc, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(context.TODO(), uc, metav1.UpdateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 
@@ -311,7 +322,11 @@ func TestApplicationDiscovery(t *testing.T) {
 	// update application by removing the discovery annotation
 	annotations, _, _ = unstructured.NestedMap(uc.Object, "metadata", "annotations")
 	delete(annotations, hdplv1alpha1.AnnotationHybridDiscovery)
-	unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations")
+	if err = unstructured.SetNestedMap(uc.Object, annotations, "metadata", "annotations"); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+
 	_, err = mcDynamicClient.Resource(appGVR).Namespace(userNamespace).Update(context.TODO(), uc, metav1.UpdateOptions{})
 	g.Expect(err).ShouldNot(HaveOccurred())
 
