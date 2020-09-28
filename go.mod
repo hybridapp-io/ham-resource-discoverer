@@ -3,7 +3,7 @@ module github.com/hybridapp-io/ham-resource-discoverer
 go 1.13
 
 require (
-	github.com/hybridapp-io/ham-deployable-operator v0.0.0-20200727143100-0d48481b58fb
+	github.com/hybridapp-io/ham-deployable-operator v0.0.0-20200911200344-85c0082e0d4c
 	github.com/kubernetes-sigs/application v0.8.1
 	github.com/onsi/gomega v1.9.0
 	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200721140654-267157672e39
