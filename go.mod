@@ -6,8 +6,7 @@ require (
 	github.com/hybridapp-io/ham-deployable-operator v0.0.0-20200727143100-0d48481b58fb
 	github.com/kubernetes-sigs/application v0.8.1
 	github.com/onsi/gomega v1.9.0
-
-	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200603180154-d1d17d718c30
+	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200721140654-267157672e39
 	github.com/open-cluster-management/multicloud-operators-subscription v1.0.0-2020-05-12-21-17-19.0.20200721224621-79fd9d450d82
 	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/spf13/pflag v1.0.5
