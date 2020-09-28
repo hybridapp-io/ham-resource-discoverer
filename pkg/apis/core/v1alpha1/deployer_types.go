@@ -35,10 +35,11 @@ var (
 type DeployerSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	Type         string                      `json:"type"`
-	OperatorRef  *corev1.ObjectReference     `json:"operatorRef,omitempty"`
-	Capabilities []rbacv1.PolicyRule         `json:"capabilities,omitempty"`
-	Scope        apiextensions.ResourceScope `json:"scope,omitempty"`
+	Type            string                       `json:"type"`
+	PlacementTarget *metav1.GroupVersionResource `json:"placementTarget,omitempty"`
+	OperatorRef     *corev1.ObjectReference      `json:"operatorRef,omitempty"`
+	Capabilities    []rbacv1.PolicyRule          `json:"capabilities,omitempty"`
+	Scope           apiextensions.ResourceScope  `json:"scope,omitempty"`
 }
 
 // DeployerStatus defines the observed state of Deployer
