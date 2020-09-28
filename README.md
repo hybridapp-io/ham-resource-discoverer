@@ -39,7 +39,7 @@ Check the [CONTRIBUTING Doc](CONTRIBUTING.md) for how to contribute to the repo.
 
 - git v2.18+
 - Go v1.13.4+
-- operator-sdk v0.15.1
+- operator-sdk v0.18.0
 - Kubernetes v1.14+
 - kubectl v1.14+
 
