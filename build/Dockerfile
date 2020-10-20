@@ -1,4 +1,9 @@
+FROM hyc-cp4mcm-team-docker-local.artifactory.swg-devops.com/cicd/cp4mcm-license:unreleased-master-latest AS license
+
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.2
+
+# After your normal FROM statement, include this COPY
+COPY --from=license /licenses /licenses
 
 # Update image
 RUN microdnf update -y && rm -rf /var/cache/yum
