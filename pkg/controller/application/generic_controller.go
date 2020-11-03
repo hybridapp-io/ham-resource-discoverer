@@ -241,7 +241,8 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 
 	// process the components on managed cluster and creates deployables on hub for them
 	for _, objlist := range appComponents {
-		for _, item := range objlist.Items {
+		for i := range objlist.Items {
+			item := objlist.Items[i]
 			klog.Info("Processing object ", item.GetName(), " in namespace ", item.GetNamespace(), " with kind ", item.GetKind())
 			if err = deployable.SyncDeployable(&item, r.Explorer, r.HubSynchronizer); err != nil {
 				klog.Error("Failed to sync deployable ", item.GetNamespace()+"/"+item.GetName(), " with error ", err)
