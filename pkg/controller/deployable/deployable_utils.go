@@ -115,6 +115,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 		// avoid expensive reconciliation logic if no changes in the object structure
 		if !reflect.DeepEqual(refreshedObject, metaobj) {
 			klog.Info("Updating deployable ", uc.GetNamespace()+"/"+uc.GetName())
+			prepareTemplate(metaobj)
 			if err = unstructured.SetNestedMap(uc.Object, metaobj.Object, "spec", "template"); err != nil {
 				klog.Error("Failed to set the spec template for deployable ", dpl.Namespace+"/"+dpl.Name)
 				return err
@@ -275,6 +276,7 @@ func prepareTemplate(metaobj metav1.Object) {
 	metaobj.SetResourceVersion("")
 	metaobj.SetGeneration(0)
 	metaobj.SetCreationTimestamp(metav1.Time{})
+	metaobj.SetManagedFields(nil)
 
 	annotations := metaobj.GetAnnotations()
 	if annotations != nil {
