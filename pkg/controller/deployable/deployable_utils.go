@@ -287,3 +287,22 @@ func prepareTemplate(metaobj metav1.Object) {
 		metaobj.SetAnnotations(annotations)
 	}
 }
+
+// Recurses up the chain of OwnerReferences and returns the resource without an OwnerReference
+func findRootResource(metaobj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	// Check if there are Owners associated with the object
+	if metaobj.GetOwnerReferences() == nil {
+		// If there are no owners return the current resource
+		return metaobj, nil
+	}
+	// Ensure there is at least one owner reference
+	if len(metaobj.GetOwnerReferences()) > 0 {
+		or := metaobj.GetOwnerReferences()
+		// Get the object associated with the owner reference
+		// TODO: Remove hardcoded response
+		return mcPod, nil
+	}
+
+	return metaobj, nil
+
+}
