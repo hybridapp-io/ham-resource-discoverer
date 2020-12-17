@@ -17,11 +17,19 @@ package deployable
 import (
 	"testing"
 
+	. "github.com/onsi/gomega"
+
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 	//	. "github.com/onsi/gomega"
 )
 
+/*
+In our call, structure went Pod > ReplicaSet > Deployment
+How to implement a Deployment here?
+*/
 var (
 	mcPod = &v1.Pod{
 		TypeMeta: metav1.TypeMeta{
@@ -43,9 +51,20 @@ var (
 
 func TestOwnerTraversal(t *testing.T) {
 
-	obj, err := findRootResource(mcPod)
+	// This test should test:
+	// Passing a deployment (returns itself)
+	// Passing a pod (returns associated deployment)
 
-	// g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(dpl.Namespace + "/" + dpl.Name))
-	// g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
-	// g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
+	g := NewWithT(t)
+
+	metaNew, err := meta.Accessor(mcPod)
+	if err != nil {
+		klog.Error("Failed to access object metadata for sync with error: ", err)
+		return
+	}
+
+	obj, err := findRootResource(metaNew)
+
+	g.Expect(err).To(BeNil())
+	g.Expect(obj).To(Equal(mcPod))
 }

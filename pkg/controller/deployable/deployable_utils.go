@@ -289,7 +289,7 @@ func prepareTemplate(metaobj metav1.Object) {
 }
 
 // Recurses up the chain of OwnerReferences and returns the resource without an OwnerReference
-func findRootResource(metaobj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func findRootResource(metaobj metav1.Object) (metav1.Object, error) {
 	// Check if there are Owners associated with the object
 	if metaobj.GetOwnerReferences() == nil {
 		// If there are no owners return the current resource
@@ -297,12 +297,18 @@ func findRootResource(metaobj *unstructured.Unstructured) (*unstructured.Unstruc
 	}
 	// Ensure there is at least one owner reference
 	if len(metaobj.GetOwnerReferences()) > 0 {
-		or := metaobj.GetOwnerReferences()
+		//or := metaobj.GetOwnerReferences() < UNCOMMENT
 		// Get the object associated with the owner reference
-		// TODO: Remove hardcoded response
-		return mcPod, nil
+		return metaobj, nil // temporary stub
+		// should find the associated meta object and call this function
 	}
-
+	// Return the original resource
 	return metaobj, nil
-
 }
+
+/*
+NEED TO KNOW:
+- How to take a meta object and find the next meta object to work with
+- How to declare Deployment for testing (see test)
+- Where in the controller to call this recursive function (should just be a drop-in)
+*/
