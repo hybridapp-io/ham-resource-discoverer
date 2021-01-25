@@ -81,6 +81,13 @@ func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer
 func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured,
 	explorer *utils.Explorer, hubSynchronizer synchronizer.HubSynchronizerInterface) error {
 
+	//Take the metaobj from here
+	rootobj, err := findRootResource(metaobj, explorer)
+	if err == nil {
+		// Replace metaobj with rootobj
+		metaobj = rootobj
+	}
+
 	if dpl.UID == "" {
 		refreshedDpl := prepareDeployable(dpl, metaobj, explorer)
 		prepareTemplate(metaobj)
@@ -288,27 +295,85 @@ func prepareTemplate(metaobj metav1.Object) {
 	}
 }
 
-// Recurses up the chain of OwnerReferences and returns the resource without an OwnerReference
-func findRootResource(metaobj metav1.Object) (metav1.Object, error) {
+// Convert to unstructured
+// Dynamic resources
+// Pod meta object > owner ref > build GVR > pass to dynamic resource client
+
+//Recurses up the chain of OwnerReferences and returns the resource without an OwnerReference
+func findRootResource(usobj *unstructured.Unstructured, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
 	// Check if there are Owners associated with the object
-	if metaobj.GetOwnerReferences() == nil {
+	if usobj.GetOwnerReferences() == nil {
 		// If there are no owners return the current resource
-		return metaobj, nil
+		return usobj, nil
 	}
 	// Ensure there is at least one owner reference
-	if len(metaobj.GetOwnerReferences()) > 0 {
-		//or := metaobj.GetOwnerReferences() < UNCOMMENT
-		// Get the object associated with the owner reference
-		return metaobj, nil // temporary stub
-		// should find the associated meta object and call this function
+	if len(usobj.GetOwnerReferences()) > 0 {
+		or := usobj.GetOwnerReferences()[0]
+		// Get object for this owner reference
+		ns := usobj.GetNamespace()
+		newobj, err := locateObjectForOwnerReference(&or, ns, explorer)
+		if err != nil {
+			klog.Error("Failed to retrieve the wrapped object for owner ref ", usobj.GetNamespace()+"/"+usobj.GetName()+" with error: ", err)
+			return nil, err
+		}
+		res, err := findRootResource(newobj, explorer)
+		if err != nil {
+			klog.Error("Failed to find root resource:", err)
+			return nil, err
+		}
+		return res, nil
 	}
 	// Return the original resource
-	return metaobj, nil
+	return usobj, nil
 }
 
-/*
-NEED TO KNOW:
-- How to take a meta object and find the next meta object to work with
-- How to declare Deployment for testing (see test)
-- Where in the controller to call this recursive function (should just be a drop-in)
-*/
+func locateObjectForOwnerReference(dpl *metav1.OwnerReference, namespace string, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
+	uc, err := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl)
+	if err != nil {
+		klog.Error("Failed to convert object to unstructured with error:", err)
+		return nil, err
+	}
+
+	kind, found, err := unstructured.NestedString(uc, "kind")
+	if !found || err != nil {
+		klog.Error("Cannot get the wrapped object kind for owner ref ", namespace+"/"+dpl.Name)
+		return nil, err
+	}
+
+	gv, found, err := unstructured.NestedString(uc, "apiVersion")
+	if !found || err != nil {
+		klog.Error("Cannot get the wrapped object apiversion for owner ref ", namespace+"/"+dpl.Name)
+		return nil, err
+	}
+
+	name, found, err := unstructured.NestedString(uc, "name")
+	if !found || err != nil {
+		klog.Error("Cannot get the wrapped object name for owner ref ", namespace+"/"+dpl.Name)
+		return nil, err
+	}
+
+	gvk := schema.GroupVersionKind{
+		Group:   utils.StripVersion(gv),
+		Version: utils.StripGroup(gv),
+		Kind:    kind,
+	}
+
+	gvr := explorer.GVKGVRMap[gvk]
+
+	if _, ok := explorer.GVKGVRMap[gvk]; !ok {
+		klog.Error("Cannot get GVR for GVK ", gvk.String()+" for owner ref "+namespace+"/"+dpl.Name)
+		return nil, err
+	}
+
+	obj, err := explorer.DynamicMCClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if obj == nil || err != nil {
+		if errors.IsNotFound(err) {
+			klog.Error("Cannot find the wrapped object for owner ref ", namespace+"/"+dpl.Name)
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	return obj, nil
+}
