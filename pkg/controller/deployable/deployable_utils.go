@@ -81,11 +81,14 @@ func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer
 func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured,
 	explorer *utils.Explorer, hubSynchronizer synchronizer.HubSynchronizerInterface) error {
 
-	//Take the metaobj from here
+	// Find the root resource with no owner reference
 	rootobj, err := findRootResource(metaobj, explorer)
 	if err == nil {
 		// Replace metaobj with rootobj
 		metaobj = rootobj
+	} else {
+		klog.Error("Failed to locate parent resource for deployable ", dpl.Namespace+"/"+dpl.Name)
+		return err
 	}
 
 	if dpl.UID == "" {
@@ -295,11 +298,7 @@ func prepareTemplate(metaobj metav1.Object) {
 	}
 }
 
-// Convert to unstructured
-// Dynamic resources
-// Pod meta object > owner ref > build GVR > pass to dynamic resource client
-
-//Recurses up the chain of OwnerReferences and returns the resource without an OwnerReference
+// Recurses up the chain of OwnerReferences and returns the resource without an OwnerReference
 func findRootResource(usobj *unstructured.Unstructured, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
 	// Check if there are Owners associated with the object
 	if usobj.GetOwnerReferences() == nil {

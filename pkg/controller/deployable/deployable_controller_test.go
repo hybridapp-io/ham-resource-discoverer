@@ -370,7 +370,7 @@ func TestObjectWithOwnerReference(t *testing.T) {
 
 	g.Expect(hubDep.GetKind()).To(Equal("Deployable"))
 
-	// Check that the template points to a service, not a pod
+	// Check that the template points to the service, not a pod
 
 	ucdep, err := runtime.DefaultUnstructuredConverter.ToUnstructured(hubDep)
 	kind, found, err := unstructured.NestedString(ucdep, "spec", "template", "kind")
