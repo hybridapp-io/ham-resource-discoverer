@@ -87,7 +87,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 		// Replace metaobj with rootobj
 		metaobj = rootobj
 	} else {
-		klog.Error("Failed to locate parent resource ", metaobj.GetNamespace()+"/"+metaobj.GetName())
+		klog.Error("Failed to locate parent resource for ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 		return err
 	}
 
