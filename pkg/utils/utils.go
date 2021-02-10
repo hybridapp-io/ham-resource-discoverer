@@ -15,10 +15,22 @@
 package utils
 
 import (
+	"context"
 	"regexp"
 	"strings"
 
 	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
+)
+
+const (
+	packageInfoLogLevel = 3
 )
 
 func IsInClusterDeployer(deployer *corev1alpha1.Deployer) bool {
@@ -70,4 +82,54 @@ func StripGroup(gv string) string {
 	}
 
 	return strings.Split(gv, "/")[1]
+}
+
+func PatchManagedClusterObject(explorer *Explorer, dpl *unstructured.Unstructured,
+	metaobj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	klog.V(packageInfoLogLevel).Info("Patching object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
+
+	// if the object is controlled by other deployable, do not change its ownership
+	if hostingAnnotation, ok := (metaobj.GetAnnotations()[dplv1.AnnotationHosting]); ok {
+		var owner = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
+		if hostingAnnotation != owner {
+			klog.V(packageInfoLogLevel).Info("Not changing the ownership of ", metaobj.GetNamespace()+"/"+metaobj.GetName(),
+				" to ", owner, " as it is already owned by deployable ", hostingAnnotation)
+			return metaobj, nil
+		}
+	}
+	objgvr := explorer.GVKGVRMap[metaobj.GroupVersionKind()]
+
+	ucobj, err := explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Get(context.TODO(), metaobj.GetName(), metav1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+
+		klog.Error("Failed to patch managed cluster object with error: ", err)
+
+		return nil, err
+	}
+
+	annotations := ucobj.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations[subv1.AnnotationHosting] = "/"
+	annotations[subv1.AnnotationSyncSource] = "subnsdpl-/"
+	annotations[dplv1.AnnotationHosting] = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
+
+	ucobj.SetAnnotations(annotations)
+	ucobj, err = explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Update(context.TODO(), ucobj, metav1.UpdateOptions{})
+	if err == nil {
+		klog.V(packageInfoLogLevel).Info("Successfully patched object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
+	}
+	return ucobj, err
+}
+
+func GetHostingAnnotations() []string {
+	return []string{
+		dplv1.AnnotationHosting,
+		subv1.AnnotationHosting,
+	}
 }

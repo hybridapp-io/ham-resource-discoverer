@@ -34,7 +34,6 @@ import (
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 )
 
@@ -53,25 +52,29 @@ var (
 	}
 )
 
-// // Add creates a new Deployable Controller and adds it to the Manager. The Manager will set fields on the Controller
-// // and Start it when the Manager is Started.
-// func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) error {
-// 	reconciler, err := newReconciler(mgr, hubconfig, cluster)
-// 	if err != nil {
-// 		klog.Error("Failed to create the deployer reconciler ", err)
-// 		return err
-// 	}
-// 	reconciler.start()
-// 	return nil
-// }
+func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) error {
+
+	explorer, err := utils.InitExplorer(hubconfig, mgr.GetConfig(), cluster)
+	if err != nil {
+		klog.Error("Failed to initialize the explorer")
+		return err
+	}
+
+	reconciler, err := NewReconciler(mgr, hubconfig, cluster, explorer)
+	if err != nil {
+		klog.Error("Failed to create the deployer reconciler ", err)
+		return err
+	}
+	reconciler.Start()
+	return nil
+}
 
 func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName,
-	explorer *utils.Explorer, hubSynchronizer synchronizer.HubSynchronizerInterface) (*ReconcileDeployable, error) {
+	explorer *utils.Explorer) (*ReconcileDeployable, error) {
 	var dynamicHubFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(explorer.DynamicHubClient, resync,
 		cluster.Namespace, nil)
 	reconciler := &ReconcileDeployable{
 		Explorer:          explorer,
-		HubSynchronizer:   hubSynchronizer,
 		DynamicHubFactory: dynamicHubFactory,
 	}
 	return reconciler, nil
@@ -91,7 +94,6 @@ type ReconcileDeployableInterface interface {
 // ReconcileDeployable reconciles a Deployable object
 type ReconcileDeployable struct {
 	Explorer          *utils.Explorer
-	HubSynchronizer   synchronizer.HubSynchronizerInterface
 	DynamicHubFactory dynamicinformer.DynamicSharedInformerFactory
 	StopCh            chan struct{}
 }
@@ -221,7 +223,7 @@ func (r *ReconcileDeployable) syncDeployable(metaobj metav1.Object) {
 		klog.Error("Cannot convert unstructured to deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName()+" with error: ", err)
 		return
 	}
-	if err = updateDeployableAndObject(dpl, tpl, r.Explorer, r.HubSynchronizer); err != nil {
+	if err = updateDeployableAndObject(dpl, tpl, r.Explorer); err != nil {
 		klog.Error("Cannot update deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName()+" with error: ", err)
 		return
 	}

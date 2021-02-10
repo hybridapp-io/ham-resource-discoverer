@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer/ocm"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -185,9 +184,9 @@ func TestNoGroupObject(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{}
+
 	c := mgr.GetClient()
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -280,8 +279,8 @@ func TestObjectWithOwnerReference(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{}
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -402,9 +401,8 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{}
 
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -502,9 +500,8 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{}
 
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -601,9 +598,8 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{}
 
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -705,9 +701,7 @@ func TestSyncDeployable(t *testing.T) {
 		t.Fail()
 	}
 
-	hubSynchronizer := &ocm.HubSynchronizer{}
-
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -745,7 +739,7 @@ func TestSyncDeployable(t *testing.T) {
 		}
 	}()
 
-	err = SyncDeployable(uc, explorer, hubSynchronizer)
+	err = SyncDeployable(uc, explorer)
 	g.Expect(err).ShouldNot(HaveOccurred())
 
 	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
@@ -754,7 +748,7 @@ func TestSyncDeployable(t *testing.T) {
 	dpl, _ := locateDeployableForObject(uc, explorer)
 	g.Expect(dpl).NotTo(BeNil())
 
-	err = SyncDeployable(uc, explorer, hubSynchronizer)
+	err = SyncDeployable(uc, explorer)
 	g.Expect(err).ShouldNot(HaveOccurred())
 
 	// sync again and expect existing deployable to be ignored
@@ -764,7 +758,7 @@ func TestSyncDeployable(t *testing.T) {
 		t.Fail()
 	}
 
-	err = SyncDeployable(uc, explorer, hubSynchronizer)
+	err = SyncDeployable(uc, explorer)
 	g.Expect(err).ShouldNot(HaveOccurred())
 
 	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
@@ -788,9 +782,7 @@ func TestDeployableCleanup(t *testing.T) {
 		t.Fail()
 	}
 
-	hubSynchronizer := &ocm.HubSynchronizer{}
-
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -869,8 +861,8 @@ func TestGenericControllerReconcile(t *testing.T) {
 		klog.Error(err)
 		t.Fail()
 	}
-	hubSynchronizer := &ocm.HubSynchronizer{}
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
 
 	hubDynamicClient := explorer.DynamicHubClient
 

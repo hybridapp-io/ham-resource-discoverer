@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/deployable"
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
@@ -52,12 +51,29 @@ var (
 	}
 )
 
+// Add creates a newObj Deployable Controller and adds it to the Manager. The Manager will set fields on the Controller
+// and Start it when the Manager is Started.
+func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) error {
+	explorer, err := utils.InitExplorer(hubconfig, mgr.GetConfig(), cluster)
+	if err != nil {
+		klog.Error("Failed to initialize the explorer")
+		return err
+	}
+
+	reconciler, err := NewReconciler(mgr, hubconfig, cluster, explorer)
+	if err != nil {
+		klog.Error("Failed to create the application reconciler ", err)
+		return err
+	}
+	reconciler.Start()
+	return nil
+}
+
 func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName,
-	explorer *utils.Explorer, hubSynchronizer synchronizer.HubSynchronizerInterface) (*ReconcileApplication, error) {
+	explorer *utils.Explorer) (*ReconcileApplication, error) {
 	var dynamicMCFactory = dynamicinformer.NewDynamicSharedInformerFactory(explorer.DynamicMCClient, resync)
 	reconciler := &ReconcileApplication{
 		Explorer:         explorer,
-		HubSynchronizer:  hubSynchronizer,
 		DynamicMCFactory: dynamicMCFactory,
 	}
 	return reconciler, nil
@@ -66,7 +82,6 @@ func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.Na
 // ReconcileDeployable reconciles a Deployable object
 type ReconcileApplication struct {
 	Explorer         *utils.Explorer
-	HubSynchronizer  synchronizer.HubSynchronizerInterface
 	DynamicMCFactory dynamicinformer.DynamicSharedInformerFactory
 	StopCh           chan struct{}
 }
@@ -244,7 +259,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 		for i := range objlist.Items {
 			item := objlist.Items[i]
 			klog.Info("Processing object ", item.GetName(), " in namespace ", item.GetNamespace(), " with kind ", item.GetKind())
-			if err = deployable.SyncDeployable(&item, r.Explorer, r.HubSynchronizer); err != nil {
+			if err = deployable.SyncDeployable(&item, r.Explorer); err != nil {
 				klog.Error("Failed to sync deployable ", item.GetNamespace()+"/"+item.GetName(), " with error ", err)
 			}
 		}

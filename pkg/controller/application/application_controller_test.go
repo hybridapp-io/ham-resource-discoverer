@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer/ocm"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 	sigappv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
@@ -167,9 +166,9 @@ func TestApplicationDiscovery(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{}
+
 	c := mgr.GetClient()
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
 	as := SetupApplicationSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -341,8 +340,8 @@ func TestGenericControllerReconcile(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
-	hubSynchronizer := &ocm.HubSynchronizer{}
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer, hubSynchronizer)
+
+	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
 
 	mcDynamicClient := explorer.DynamicMCClient
 	appGVR := explorer.GVKGVRMap[applicationGVK]
