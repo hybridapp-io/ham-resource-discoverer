@@ -32,7 +32,6 @@ import (
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
 	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/synchronizer"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 )
 
@@ -41,13 +40,12 @@ const (
 	packageInfoLogLevel = 3
 )
 
-func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer,
-	hubSynchronizer synchronizer.HubSynchronizerInterface) error {
+func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer) error {
 
 	annotations := metaobj.GetAnnotations()
 	if annotations != nil {
 		matched := false
-		for _, key := range hubSynchronizer.GetHostingAnnotations() {
+		for _, key := range utils.GetHostingAnnotations() {
 			if _, matched = annotations[key]; matched {
 				break
 			}
@@ -71,7 +69,7 @@ func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer
 		dpl.Namespace = explorer.Cluster.Namespace
 	}
 
-	if err = updateDeployableAndObject(dpl, metaobj, explorer, hubSynchronizer); err != nil {
+	if err = updateDeployableAndObject(dpl, metaobj, explorer); err != nil {
 		klog.Error("Failed to update deployable :", metaobj.GetNamespace(), "/", metaobj.GetName()+" with error: ", err)
 		return err
 	}
@@ -79,7 +77,7 @@ func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer
 }
 
 func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured,
-	explorer *utils.Explorer, hubSynchronizer synchronizer.HubSynchronizerInterface) error {
+	explorer *utils.Explorer) error {
 
 	// Find the root resource with no owner reference
 	rootobj, err := findRootResource(metaobj, explorer)
@@ -117,7 +115,7 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 			return err
 		}
 
-		refreshedObject, err := hubSynchronizer.PatchManagedClusterObject(explorer, uc, metaobj)
+		refreshedObject, err := utils.PatchManagedClusterObject(explorer, uc, metaobj)
 		if err != nil {
 			klog.Error("Failed to patch object ", metaobj.GetNamespace()+"/"+metaobj.GetName(), " with error: ", err)
 			return err
