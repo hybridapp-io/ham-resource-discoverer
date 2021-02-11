@@ -14,9 +14,9 @@
 
 package controller
 
-import "github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/application/ocm"
+import "github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/application"
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerSyncFuncs = append(AddToManagerSyncFuncs, ocm.Add)
+	AddToManagerFuncs = append(AddToManagerFuncs, application.Add)
 }
