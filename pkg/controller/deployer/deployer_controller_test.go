@@ -55,6 +55,20 @@ var (
 			Scope: apiextensions.ClusterScoped,
 		},
 	}
+	managedClusterDeployer2 = &corev1alpha1.Deployer{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Deployer",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        deployerName + "2",
+			Namespace:   deployerNamespace,
+			Annotations: map[string]string{corev1alpha1.IsDefaultDeployer: "true"},
+		},
+		Spec: corev1alpha1.DeployerSpec{
+			Type:  kubevirtType,
+			Scope: apiextensions.ClusterScoped,
+		},
+	}
 
 	// deployer object
 	key = types.NamespacedName{
@@ -62,7 +76,13 @@ var (
 		Namespace: deployerNamespace,
 	}
 
-	expectedRequest = reconcile.Request{NamespacedName: key}
+	key2 = types.NamespacedName{
+		Name:      deployerName + "2",
+		Namespace: deployerNamespace,
+	}
+
+	expectedRequest  = reconcile.Request{NamespacedName: key}
+	expectedRequest2 = reconcile.Request{NamespacedName: key2}
 
 	timeout = time.Second * 2
 )
@@ -206,4 +226,50 @@ func TestDeployersetRemovedFromHub(t *testing.T) {
 	deployersetResource := &corev1alpha1.DeployerSet{}
 	err = hubClusterClient.Get(context.TODO(), clusterOnHub, deployersetResource)
 	g.Expect(errors.IsNotFound(err)).To(BeTrue())
+}
+
+func TestDeployerSetUpdateWithRefreshedDeployerList(t *testing.T) {
+
+	g := NewWithT(t)
+
+	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
+
+	g.Expect(err).NotTo(HaveOccurred())
+
+	managedClusterClient := mgr.GetClient()
+	innerHubClient, _ := client.New(hubClusterConfig, client.Options{})
+	hubClusterClient := SetupHubClient(innerHubClient)
+
+	rec := newReconciler(mgr, hubClusterClient, clusterOnHub)
+	recFn, requests := SetupTestReconcile(rec)
+
+	g.Expect(add(mgr, recFn)).NotTo(HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	dep := managedClusterDeployer.DeepCopy()
+	dep2 := managedClusterDeployer2.DeepCopy()
+
+	g.Expect(managedClusterClient.Create(context.TODO(), dep)).NotTo(HaveOccurred())
+
+	g.Eventually(requests, timeout).Should(Receive(Equal(expectedRequest)))
+
+	g.Expect(managedClusterClient.Create(context.TODO(), dep2)).NotTo(HaveOccurred())
+	g.Eventually(requests, timeout).Should(Receive(Equal(expectedRequest2)))
+
+	if err = managedClusterClient.Delete(context.TODO(), dep); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+
+	if err = managedClusterClient.Delete(context.TODO(), dep2); err != nil {
+		klog.Error(err)
+		t.Fail()
+	}
+
 }
