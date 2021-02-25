@@ -3,8 +3,8 @@ kind: Namespace
 metadata:
   name: toronto
 ---
-apiVersion: clusterregistry.k8s.io/v1alpha1
-kind: Cluster
+apiVersion: cluster.open-cluster-management.io/v1
+kind: ManagedCluster
 metadata:
   labels:
     cloud: IBM
@@ -15,7 +15,5 @@ metadata:
     region: US
     vendor: ICP
   name: toronto
-  namespace: toronto
 spec:
   authInfo: {}
-status: {}

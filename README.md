@@ -83,7 +83,7 @@ Register the ham-resource-discoverer CRD dependencies.
 ```shell
 kubectl create -f hack/test/app_v1alpha1_deployable_crd.yaml
 kubectl create -f hack/test/app_v1beta1_application.yaml
-kubectl create -f hack/test/cluster-registry-crd.yaml
+kubectl create -f hack/test/open-cluster-management.io_managedclusters.crd.yaml
 kubectl create -f hack/test/clusterstatus-crd.yaml
 ```
 
