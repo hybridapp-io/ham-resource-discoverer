@@ -17,7 +17,6 @@ package utils
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
@@ -27,7 +26,7 @@ import (
 type Explorer struct {
 	DynamicMCClient  dynamic.Interface
 	DynamicHubClient dynamic.Interface
-	Cluster          types.NamespacedName
+	ClusterName      string
 	GVKGVRMap        map[schema.GroupVersionKind]schema.GroupVersionResource
 }
 
@@ -40,7 +39,7 @@ var (
 	explorer          *Explorer
 )
 
-func InitExplorer(hubconfig, mcconfig *rest.Config, cluster types.NamespacedName) (*Explorer, error) {
+func InitExplorer(hubconfig, mcconfig *rest.Config, clusterName string) (*Explorer, error) {
 	var err error
 
 	if explorer != nil {
@@ -60,7 +59,7 @@ func InitExplorer(hubconfig, mcconfig *rest.Config, cluster types.NamespacedName
 		return nil, err
 	}
 
-	explorer.Cluster = cluster
+	explorer.ClusterName = clusterName
 	resources, err := discovery.NewDiscoveryClientForConfigOrDie(mcconfig).ServerPreferredResources()
 	if err != nil {
 		klog.Error("Failed to discover all server resources, continuing with err:", err)

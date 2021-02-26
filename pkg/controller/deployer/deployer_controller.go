@@ -37,7 +37,7 @@ const (
 
 // Add creates a new Deployer Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) error {
+func Add(mgr manager.Manager, hubconfig *rest.Config, clusterName string) error {
 
 	hubclient, err := client.New(hubconfig, client.Options{})
 	if err != nil {
@@ -45,12 +45,12 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedNa
 		return err
 	}
 
-	return add(mgr, newReconciler(mgr, hubclient, cluster))
+	return add(mgr, newReconciler(mgr, hubclient, clusterName))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, hubclient client.Client, cluster types.NamespacedName) reconcile.Reconciler {
-	return &ReconcileDeployer{Client: mgr.GetClient(), hubclient: hubclient, cluster: cluster}
+func newReconciler(mgr manager.Manager, hubclient client.Client, clusterName string) reconcile.Reconciler {
+	return &ReconcileDeployer{Client: mgr.GetClient(), hubclient: hubclient, clusterName: clusterName}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -78,8 +78,8 @@ type ReconcileDeployer struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	cluster   types.NamespacedName
-	hubclient client.Client
+	clusterName string
+	hubclient   client.Client
 }
 
 // Reconcile reads that state of the cluster for a Deployer object and makes changes based on the state read
@@ -133,11 +133,11 @@ func (r *ReconcileDeployer) reconcileDeployerSet() (reconcile.Result, error) {
 
 	deployerset := &corev1alpha1.DeployerSet{}
 
-	err = r.hubclient.Get(context.TODO(), r.cluster, deployerset)
+	err = r.hubclient.Get(context.TODO(), types.NamespacedName{Name: r.clusterName, Namespace: r.clusterName}, deployerset)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			deployerset.Name = r.cluster.Name
-			deployerset.Namespace = r.cluster.Namespace
+			deployerset.Name = r.clusterName
+			deployerset.Namespace = r.clusterName
 			setspec.DeepCopyInto(&deployerset.Spec)
 			err = r.hubclient.Create(context.TODO(), deployerset, &client.CreateOptions{})
 			if err != nil {

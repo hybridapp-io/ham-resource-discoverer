@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -53,14 +52,14 @@ var (
 
 // Add creates a newObj Deployable Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) error {
-	explorer, err := utils.InitExplorer(hubconfig, mgr.GetConfig(), cluster)
+func Add(mgr manager.Manager, hubconfig *rest.Config, clusterName string) error {
+	explorer, err := utils.InitExplorer(hubconfig, mgr.GetConfig(), clusterName)
 	if err != nil {
 		klog.Error("Failed to initialize the explorer")
 		return err
 	}
 
-	reconciler, err := NewReconciler(mgr, hubconfig, cluster, explorer)
+	reconciler, err := NewReconciler(mgr, hubconfig, clusterName, explorer)
 	if err != nil {
 		klog.Error("Failed to create the application reconciler ", err)
 		return err
@@ -69,7 +68,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedNa
 	return nil
 }
 
-func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName,
+func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, clusterName string,
 	explorer *utils.Explorer) (*ReconcileApplication, error) {
 	var dynamicMCFactory = dynamicinformer.NewDynamicSharedInformerFactory(explorer.DynamicMCClient, resync)
 	reconciler := &ReconcileApplication{
@@ -260,7 +259,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 			item := objlist.Items[i]
 			klog.Info("Processing object ", item.GetName(), " in namespace ", item.GetNamespace(), " with kind ", item.GetKind())
 			if err = deployable.SyncDeployable(&item, r.Explorer); err != nil {
-				klog.Error("Failed to sync deployable ", item.GetNamespace()+"/"+item.GetName(), " with error ", err)
+				klog.Error("Failed to sync resource ", item.GetNamespace()+"/"+item.GetName(), " with error ", err)
 			}
 		}
 	}

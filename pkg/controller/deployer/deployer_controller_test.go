@@ -97,7 +97,7 @@ func TestReconcile(t *testing.T) {
 
 	managedClusterClient := mgr.GetClient()
 	hubClient, _ := client.New(hubClusterConfig, client.Options{})
-	rec := newReconciler(mgr, hubClient, clusterOnHub)
+	rec := newReconciler(mgr, hubClient, clusterNameOnHub)
 	recFn, requests := SetupTestReconcile(rec)
 
 	g.Expect(add(mgr, recFn)).NotTo(HaveOccurred())
@@ -147,7 +147,7 @@ func TestDeployersetCreatedOnHub(t *testing.T) {
 	innerHubClient, _ := client.New(hubClusterConfig, client.Options{})
 	hubClusterClient := SetupHubClient(innerHubClient)
 
-	rec := newReconciler(mgr, hubClusterClient, clusterOnHub)
+	rec := newReconciler(mgr, hubClusterClient, clusterNameOnHub)
 	recFn, requests := SetupTestReconcile(rec)
 
 	g.Expect(add(mgr, recFn)).NotTo(HaveOccurred())
@@ -176,7 +176,8 @@ func TestDeployersetCreatedOnHub(t *testing.T) {
 
 	// deployerset in hub cluster
 	deployersetResource := &corev1alpha1.DeployerSet{}
-	g.Expect(hubClusterClient.Get(context.TODO(), clusterOnHub, deployersetResource)).NotTo(HaveOccurred())
+	g.Expect(hubClusterClient.Get(context.TODO(), types.NamespacedName{Name: clusterNameOnHub,
+		Namespace: clusterNameOnHub}, deployersetResource)).NotTo(HaveOccurred())
 	g.Expect(deployersetResource.ObjectMeta.Name).To(Equal(clusterNameOnHub))
 	g.Expect(deployersetResource.ObjectMeta.Namespace).To(Equal(clusterNamespaceOnHub))
 	g.Expect(deployersetResource.Spec.DefaultDeployer).To(Equal(deployerNamespace + "/" + deployerName))
@@ -196,7 +197,7 @@ func TestDeployersetRemovedFromHub(t *testing.T) {
 	innerHubClient, _ := client.New(hubClusterConfig, client.Options{})
 	hubClusterClient := SetupHubClient(innerHubClient)
 
-	rec := newReconciler(mgr, hubClusterClient, clusterOnHub)
+	rec := newReconciler(mgr, hubClusterClient, clusterNameOnHub)
 	recFn, requests := SetupTestReconcile(rec)
 
 	g.Expect(add(mgr, recFn)).NotTo(HaveOccurred())
@@ -224,7 +225,7 @@ func TestDeployersetRemovedFromHub(t *testing.T) {
 
 	// deployerset in hub cluster
 	deployersetResource := &corev1alpha1.DeployerSet{}
-	err = hubClusterClient.Get(context.TODO(), clusterOnHub, deployersetResource)
+	err = hubClusterClient.Get(context.TODO(), types.NamespacedName{Name: clusterNameOnHub, Namespace: clusterNameOnHub}, deployersetResource)
 	g.Expect(errors.IsNotFound(err)).To(BeTrue())
 }
 
@@ -240,7 +241,7 @@ func TestDeployerSetUpdateWithRefreshedDeployerList(t *testing.T) {
 	innerHubClient, _ := client.New(hubClusterConfig, client.Options{})
 	hubClusterClient := SetupHubClient(innerHubClient)
 
-	rec := newReconciler(mgr, hubClusterClient, clusterOnHub)
+	rec := newReconciler(mgr, hubClusterClient, clusterNameOnHub)
 	recFn, requests := SetupTestReconcile(rec)
 
 	g.Expect(add(mgr, recFn)).NotTo(HaveOccurred())
