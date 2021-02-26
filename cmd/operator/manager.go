@@ -37,7 +37,6 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -103,12 +102,6 @@ func RunManager(sig <-chan struct{}) {
 		os.Exit(errorExitCode)
 	}
 
-	// Setup all Controllers
-	if Options.ClusterNamespace == "" {
-		klog.Error("Deployer operator runs on managed cluster of CP4MCM, a cluster namespace on hub must be provided")
-		os.Exit(errorExitCode)
-	}
-
 	hubconfig := mgr.GetConfig()
 	if Options.HubConfigFilePathName != "" {
 		hubconfig, err = clientcmd.BuildConfigFromFlags("", Options.HubConfigFilePathName)
@@ -118,8 +111,7 @@ func RunManager(sig <-chan struct{}) {
 		}
 	}
 
-	if err := controller.AddToManager(mgr, hubconfig,
-		types.NamespacedName{Name: Options.ClusterName, Namespace: Options.ClusterNamespace}); err != nil {
+	if err := controller.AddToManager(mgr, hubconfig, Options.ClusterName); err != nil {
 		klog.Error(err, "")
 		os.Exit(errorExitCode)
 	}

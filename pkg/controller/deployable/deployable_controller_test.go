@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -49,11 +48,6 @@ var (
 
 	applicationName  = "wordpress-01"
 	appLabelSelector = "app.kubernetes.io/name"
-
-	cluster = types.NamespacedName{
-		Name:      mcName,
-		Namespace: mcName,
-	}
 
 	mcService = &v1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -183,10 +177,10 @@ func TestNoGroupObject(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
 
 	c := mgr.GetClient()
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -278,9 +272,9 @@ func TestObjectWithOwnerReference(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
 
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -400,9 +394,9 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
 
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -499,9 +493,9 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
 
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -597,9 +591,9 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
 
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -695,13 +689,13 @@ func TestSyncDeployable(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
 	if err != nil {
 		klog.Error("Failed to initialize the explorer")
 		t.Fail()
 	}
 
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -742,7 +736,7 @@ func TestSyncDeployable(t *testing.T) {
 	err = SyncDeployable(uc, explorer)
 	g.Expect(err).ShouldNot(HaveOccurred())
 
-	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
+	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
 	g.Expect(dplList.Items).To(HaveLen(1))
 
 	dpl, _ := locateDeployableForObject(uc, explorer)
@@ -761,7 +755,7 @@ func TestSyncDeployable(t *testing.T) {
 	err = SyncDeployable(uc, explorer)
 	g.Expect(err).ShouldNot(HaveOccurred())
 
-	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
+	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
 	g.Expect(dplList.Items).To(HaveLen(1))
 
 	if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.GetName(), metav1.DeleteOptions{}); err != nil {
@@ -776,13 +770,13 @@ func TestDeployableCleanup(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
 	if err != nil {
 		klog.Error("Failed to initialize the explorer")
 		t.Fail()
 	}
 
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
 	ds := SetupDeployableSync(rec)
 
@@ -856,13 +850,13 @@ func TestGenericControllerReconcile(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
 	if err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
 	hubDynamicClient := explorer.DynamicHubClient
 

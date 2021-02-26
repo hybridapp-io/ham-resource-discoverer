@@ -22,14 +22,12 @@ import (
 
 const (
 	envVarClusterName      = "CLUSTERNAME"
-	envVarClusterNamespace = "CLUSTERNAMESPACE"
 	envVarHubClusterConfig = "HUBCLUSTERCONFIGFILE"
 )
 
 // SubscriptionCMDOptions for command line flag parsing
 type SubscriptionCMDOptions struct {
 	ClusterName           string
-	ClusterNamespace      string
 	HubConfigFilePathName string
 }
 
@@ -52,12 +50,5 @@ func ProcessFlags() {
 		"cluster-name",
 		os.Getenv(envVarClusterName),
 		"Name of this endpoint.",
-	)
-
-	flag.StringVar(
-		&Options.ClusterNamespace,
-		"cluster-namespace",
-		os.Getenv(envVarClusterNamespace),
-		"Cluster Namespace of this endpoint in hub.",
 	)
 }

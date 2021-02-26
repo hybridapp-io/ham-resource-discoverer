@@ -26,7 +26,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -49,7 +48,7 @@ var (
 	applicationName  = "wordpress-01"
 	appLabelSelector = "app.kubernetes.io/name"
 
-	mcNamespace      = "managedcluster"
+	mcName           = "managedcluster"
 	userNamespace    = "default"
 	clusterNamespace = "clusterns"
 
@@ -61,13 +60,8 @@ var (
 
 	mcNS = v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: mcNamespace,
+			Name: mcName,
 		},
-	}
-
-	cluster = types.NamespacedName{
-		Name:      mcNamespace,
-		Namespace: mcNamespace,
 	}
 
 	webServicePort = v1.ServicePort{
@@ -165,10 +159,10 @@ func TestApplicationDiscovery(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
 
 	c := mgr.GetClient()
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 	as := SetupApplicationSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -261,7 +255,7 @@ func TestApplicationDiscovery(t *testing.T) {
 	<-as.(ApplicationSync).CreateCh
 
 	// retrieve deployablelist on hub
-	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
+	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
 	// expect only 2 deployables, as the configmap was created in another namespace
 	g.Expect(dplList.Items).To(HaveLen(2))
 	kinds := [2]string{"Service", "StatefulSet"}
@@ -314,7 +308,7 @@ func TestApplicationDiscovery(t *testing.T) {
 	<-as.(ApplicationSync).UpdateCh
 
 	// retrieve deployablelist on hub
-	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(cluster.Namespace).List(context.TODO(), metav1.ListOptions{})
+	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
 	// expect 3 deployables, as the configmap is covered now by AnnotationClusterScope
 	g.Expect(dplList.Items).To(HaveLen(3))
 
@@ -339,9 +333,9 @@ func TestGenericControllerReconcile(t *testing.T) {
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), cluster)
+	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
 
-	rec, _ := NewReconciler(mgr, hubClusterConfig, cluster, explorer)
+	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
 	mcDynamicClient := explorer.DynamicMCClient
 	appGVR := explorer.GVKGVRMap[applicationGVK]

@@ -25,7 +25,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,12 +45,6 @@ const (
 var (
 	managedClusterConfig *rest.Config
 	hubClusterConfig     *rest.Config
-
-	// managed cluster namespace on hub
-	clusterOnHub = types.NamespacedName{
-		Name:      clusterNameOnHub,
-		Namespace: clusterNamespaceOnHub,
-	}
 
 	nsOnHub = v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

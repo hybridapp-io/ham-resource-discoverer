@@ -24,7 +24,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
@@ -52,15 +51,15 @@ var (
 	}
 )
 
-func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName) error {
+func Add(mgr manager.Manager, hubconfig *rest.Config, clusterName string) error {
 
-	explorer, err := utils.InitExplorer(hubconfig, mgr.GetConfig(), cluster)
+	explorer, err := utils.InitExplorer(hubconfig, mgr.GetConfig(), clusterName)
 	if err != nil {
 		klog.Error("Failed to initialize the explorer")
 		return err
 	}
 
-	reconciler, err := NewReconciler(mgr, hubconfig, cluster, explorer)
+	reconciler, err := NewReconciler(mgr, hubconfig, clusterName, explorer)
 	if err != nil {
 		klog.Error("Failed to create the deployer reconciler ", err)
 		return err
@@ -69,10 +68,10 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedNa
 	return nil
 }
 
-func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, cluster types.NamespacedName,
+func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, clusterName string,
 	explorer *utils.Explorer) (*ReconcileDeployable, error) {
 	var dynamicHubFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(explorer.DynamicHubClient, resync,
-		cluster.Namespace, nil)
+		clusterName, nil)
 	reconciler := &ReconcileDeployable{
 		Explorer:          explorer,
 		DynamicHubFactory: dynamicHubFactory,
@@ -140,7 +139,7 @@ func (r *ReconcileDeployable) SyncCreateDeployable(obj interface{}) {
 	}
 
 	//reconcile only deployables in the cluster namespace
-	if metaobj.GetNamespace() != r.Explorer.Cluster.Namespace {
+	if metaobj.GetNamespace() != r.Explorer.ClusterName {
 		return
 	}
 
@@ -160,7 +159,7 @@ func (r *ReconcileDeployable) SyncUpdateDeployable(oldObj, newObj interface{}) {
 		klog.Error("Failed to access object metadata for sync with error: ", err)
 		return
 	}
-	if metaNew.GetNamespace() != r.Explorer.Cluster.Namespace {
+	if metaNew.GetNamespace() != r.Explorer.ClusterName {
 		return
 	}
 
