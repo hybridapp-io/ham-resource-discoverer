@@ -881,3 +881,19 @@ func TestGenericControllerReconcile(t *testing.T) {
 
 	defer rec.Stop()
 }
+
+func TestAdd(t *testing.T) {
+
+	g := NewWithT(t)
+
+	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	recError := Add(mgr, hubClusterConfig, mcName)
+
+	if recError != nil {
+		klog.Error(recError)
+		t.Fail()
+
+	}
+}
