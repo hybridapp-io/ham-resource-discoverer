@@ -75,8 +75,6 @@ var _ reconcile.Reconciler = &ReconcileDeployer{}
 
 // ReconcileDeployer reconciles a Deployer object
 type ReconcileDeployer struct {
-	// This client, initialized using mgr.Client() above, is a split client
-	// that reads objects from the cache and writes to the apiserver
 	client.Client
 	clusterName string
 	hubclient   client.Client
