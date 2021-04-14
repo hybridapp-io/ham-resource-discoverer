@@ -31,6 +31,7 @@ import (
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
+	hdplutils "github.com/hybridapp-io/ham-deployable-operator/pkg/utils"
 	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 )
@@ -65,7 +66,8 @@ func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer
 
 	if dpl == nil {
 		dpl = &dplv1.Deployable{}
-		dpl.GenerateName = strings.ToLower(metaobj.GetKind()+"-"+metaobj.GetNamespace()+"-"+metaobj.GetName()) + "-"
+		dpl.GenerateName = hdplutils.TruncateString(strings.ToLower(metaobj.GetKind()+"-"+metaobj.GetNamespace()+"-"+metaobj.GetName()),
+			hdplv1alpha1.GeneratedDeployableNameLength) + "-"
 		dpl.Namespace = explorer.ClusterName
 	}
 
@@ -238,9 +240,9 @@ func locateObjectForDeployable(dpl metav1.Object, explorer *utils.Explorer) (*un
 		return nil, err
 	}
 
-	namespace, found, err := unstructured.NestedString(uc, "spec", "template", "metadata", "namespace")
-	if !found || err != nil {
-		klog.Error("Cannot get the wrapped object namespace for deployable ", dpl.GetNamespace()+"/"+dpl.GetName())
+	namespace, _, err := unstructured.NestedString(uc, "spec", "template", "metadata", "namespace")
+	if err != nil {
+		klog.Error("Cannot get the wrapped object namespace for deployable ", dpl.GetNamespace()+"/"+dpl.GetName(), " with error: ", err)
 		return nil, err
 	}
 
@@ -257,7 +259,12 @@ func locateObjectForDeployable(dpl metav1.Object, explorer *utils.Explorer) (*un
 		return nil, err
 	}
 
-	obj, err := explorer.DynamicMCClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	var obj *unstructured.Unstructured
+	if namespace == "" {
+		obj, err = explorer.DynamicMCClient.Resource(gvr).Get(context.TODO(), name, metav1.GetOptions{})
+	} else {
+		obj, err = explorer.DynamicMCClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	}
 	if obj == nil || err != nil {
 		if errors.IsNotFound(err) {
 			klog.Error("Cannot find the wrapped object for deployable ", dpl.GetNamespace()+"/"+dpl.GetName())
