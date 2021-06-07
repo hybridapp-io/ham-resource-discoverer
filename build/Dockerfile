@@ -1,7 +1,7 @@
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.4
 
 # Update image
-RUN microdnf update -y && rm -rf /var/cache/yum
+RUN microdnf update -y && microdnf clean all
 
 LABEL   name="quay.io/hybridappio/ham-resource-discoverer" \
         summary="Hybrid Application Model - Resource Discoverer Operator" \
