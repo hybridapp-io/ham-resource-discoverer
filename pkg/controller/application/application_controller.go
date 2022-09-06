@@ -209,7 +209,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 		return err
 	}
 
-	var appComponents map[metav1.GroupKind]*unstructured.UnstructuredList = make(map[metav1.GroupKind]*unstructured.UnstructuredList)
+	var appComponents = make(map[metav1.GroupKind]*unstructured.UnstructuredList)
 
 	for _, componentKind := range app.Spec.ComponentGroupKinds {
 		klog.Info("Processing application GK ", componentKind.String())
