@@ -160,6 +160,7 @@ func TestApplicationDiscovery(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
+	g.Expect(err).NotTo(HaveOccurred())
 
 	c := mgr.GetClient()
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
@@ -334,6 +335,7 @@ func TestGenericControllerReconcile(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
+	g.Expect(err).NotTo(HaveOccurred())
 
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
