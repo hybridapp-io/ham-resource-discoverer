@@ -18,6 +18,7 @@ import (
 	sigappapis "github.com/kubernetes-sigs/application/pkg/apis"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	manifestwork "github.com/open-cluster-management/api/work/v1"
 	dplapis "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis"
 )
 
@@ -32,6 +33,11 @@ func AddToScheme(s *runtime.Scheme) error {
 	}
 
 	err = sigappapis.AddToScheme(s)
+	if err != nil {
+		return err
+	}
+
+	err = manifestwork.AddToScheme(s)
 	if err != nil {
 		return err
 	}
