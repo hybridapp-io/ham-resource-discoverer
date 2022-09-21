@@ -135,6 +135,7 @@ func updateManifestWorkAndObject(mw *workapiv1.ManifestWork, metaobj *unstructur
 			return err
 		}
 		// avoid expensive reconciliation logic if no changes in the object structure
+		// TODO: revisit this. Not sure how to set manifest
 		if !reflect.DeepEqual(refreshedObject, metaobj) {
 			klog.Info("Updating manifestwork ", uc.GetNamespace()+"/"+uc.GetName())
 			prepareTemplate(metaobj)
