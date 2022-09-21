@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 
+	workapiv1 "github.com/open-cluster-management/api/work/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
@@ -41,7 +42,7 @@ const (
 	packageInfoLogLevel = 3
 )
 
-func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer) error {
+func SyncManifestWork(metaobj *unstructured.Unstructured, explorer *utils.Explorer) error {
 
 	annotations := metaobj.GetAnnotations()
 	if annotations != nil {
@@ -58,27 +59,27 @@ func SyncDeployable(metaobj *unstructured.Unstructured, explorer *utils.Explorer
 		}
 	}
 
-	dpl, err := locateDeployableForObject(metaobj, explorer)
+	mw, err := locateManifestWorkForObject(metaobj, explorer)
 	if err != nil {
-		klog.Error("Failed to locate deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName(), " with error: ", err)
+		klog.Error("Failed to locate manifestwork ", metaobj.GetNamespace()+"/"+metaobj.GetName(), " with error: ", err)
 		return err
 	}
 
-	if dpl == nil {
-		dpl = &dplv1.Deployable{}
-		dpl.GenerateName = hdplutils.TruncateString(strings.ToLower(metaobj.GetKind()+"-"+metaobj.GetNamespace()+"-"+metaobj.GetName()),
+	if mw == nil {
+		mw = &workapiv1.ManifestWork{}
+		mw.GenerateName = hdplutils.TruncateString(strings.ToLower(metaobj.GetKind()+"-"+metaobj.GetNamespace()+"-"+metaobj.GetName()),
 			hdplv1alpha1.GeneratedDeployableNameLength) + "-"
-		dpl.Namespace = explorer.ClusterName
+		mw.Namespace = explorer.ClusterName
 	}
 
-	if err = updateDeployableAndObject(dpl, metaobj, explorer); err != nil {
-		klog.Error("Failed to update deployable: ", metaobj.GetNamespace(), "/", metaobj.GetName()+" with error: ", err)
+	if err = updateManifestWorkAndObject(mw, metaobj, explorer); err != nil {
+		klog.Error("Failed to update manifestwork: ", metaobj.GetNamespace(), "/", metaobj.GetName()+" with error: ", err)
 		return err
 	}
 	return nil
 }
 
-func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unstructured,
+func updateManifestWorkAndObject(mw *workapiv1.ManifestWork, metaobj *unstructured.Unstructured,
 	explorer *utils.Explorer) error {
 
 	// Find the root resource with no owner reference
@@ -91,29 +92,40 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 		return err
 	}
 
-	if dpl.UID == "" {
-		refreshedDpl := prepareDeployable(dpl, metaobj, explorer)
+	if mw.UID == "" {
+		refreshedMw := prepareManifestWork(mw, metaobj, explorer)
 		prepareTemplate(metaobj)
-		refreshedDpl.Spec.Template = &runtime.RawExtension{
-			Object: metaobj,
+		appManifest := workapiv1.Manifest{
+			runtime.RawExtension{
+				Object: metaobj,
+			},
 		}
-		ucContent, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(refreshedDpl)
+
+		if len(refreshedMw.Spec.Workload.Manifests) == 0 {
+			refreshedMw.Spec.Workload.Manifests = []workapiv1.Manifest{
+				appManifest,
+			}
+		} else {
+			refreshedMw.Spec.Workload.Manifests[0] = appManifest //TODO: revisit this
+		}
+
+		ucContent, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(refreshedMw)
 
 		uc := &unstructured.Unstructured{}
 		uc.SetUnstructuredContent(ucContent)
-		uc.SetGroupVersionKind(deployableGVK)
+		uc.SetGroupVersionKind(manifestworkGVK)
 
-		uc, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(refreshedDpl.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{})
+		uc, err := explorer.DynamicHubClient.Resource(manifestworkGVR).Namespace(refreshedMw.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{})
 		if err != nil {
-			klog.Error("Failed to sync deployable ", dpl.Namespace+"/"+dpl.Name, " with error ", err)
+			klog.Error("Failed to sync manifestwork ", mw.Namespace+"/"+mw.Name, " with error ", err)
 			return err
 		}
-		klog.V(packageInfoLogLevel).Info("Successfully added deployable ", uc.GetNamespace()+"/"+uc.GetName(),
+		klog.V(packageInfoLogLevel).Info("Successfully added manifestwork ", uc.GetNamespace()+"/"+uc.GetName(),
 			" for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 	} else if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		uc, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), dpl.Name, metav1.GetOptions{})
+		uc, err := explorer.DynamicHubClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Get(context.TODO(), mw.Name, metav1.GetOptions{})
 		if err != nil {
-			klog.Error("Failed to retrieve deployable from hub ", dpl.Namespace+"/"+dpl.Name)
+			klog.Error("Failed to retrieve manifestwork from hub ", mw.Namespace+"/"+mw.Name)
 			return err
 		}
 
@@ -124,10 +136,10 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 		}
 		// avoid expensive reconciliation logic if no changes in the object structure
 		if !reflect.DeepEqual(refreshedObject, metaobj) {
-			klog.Info("Updating deployable ", uc.GetNamespace()+"/"+uc.GetName())
+			klog.Info("Updating manifestwork ", uc.GetNamespace()+"/"+uc.GetName())
 			prepareTemplate(metaobj)
-			if err = unstructured.SetNestedMap(uc.Object, metaobj.Object, "spec", "template"); err != nil {
-				klog.Error("Failed to set the spec template for deployable ", dpl.Namespace+"/"+dpl.Name)
+			if err = unstructured.SetNestedMap(uc.Object, metaobj.Object, "spec", "workload", "manifests"); err != nil {
+				klog.Error("Failed to set the spec template for manifestwork ", mw.Namespace+"/"+mw.Name)
 				return err
 			}
 			// update the hybrid-discovery annotation
@@ -135,29 +147,29 @@ func updateDeployableAndObject(dpl *dplv1.Deployable, metaobj *unstructured.Unst
 			annotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryCompleted
 			uc.SetAnnotations(annotations)
 
-			uc.SetGroupVersionKind(deployableGVK)
-			uc, err = explorer.DynamicHubClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(context.TODO(), uc, metav1.UpdateOptions{})
+			uc.SetGroupVersionKind(manifestworkGVK)
+			uc, err = explorer.DynamicHubClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Update(context.TODO(), uc, metav1.UpdateOptions{})
 			if err != nil {
-				klog.Error("Failed to update deployable ", dpl.Namespace+"/"+dpl.Name, ". Retrying... ")
+				klog.Error("Failed to update manifestwork ", mw.Namespace+"/"+mw.Name, ". Retrying... ")
 				return err
 			}
-			klog.V(packageInfoLogLevel).Info("Successfully updated deployable ", uc.GetNamespace()+"/"+uc.GetName(),
+			klog.V(packageInfoLogLevel).Info("Successfully updated manifestwork ", uc.GetNamespace()+"/"+uc.GetName(),
 				" for object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 		} else {
-			klog.V(packageInfoLogLevel).Info("Skipping deployable ", dpl.Namespace+"/"+dpl.Name, ". No changes detected")
+			klog.V(packageInfoLogLevel).Info("Skipping manifestwork ", mw.Namespace+"/"+mw.Name, ". No changes detected")
 		}
 		return nil
 	}); err != nil {
-		klog.Error("Failed to sync deployable ", dpl.Namespace+"/"+dpl.Name)
+		klog.Error("Failed to sync manifestwork ", mw.Namespace+"/"+mw.Name)
 		return err
 	}
 	return nil
 }
 
-func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstructured, explorer *utils.Explorer) *dplv1.Deployable {
-	dpl := deployable.DeepCopy()
+func prepareManifestWork(manifestwork *workapiv1.ManifestWork, metaobj *unstructured.Unstructured, explorer *utils.Explorer) *workapiv1.ManifestWork {
+	mw := manifestwork.DeepCopy()
 
-	labels := dpl.GetLabels()
+	labels := mw.GetLabels()
 	if labels == nil {
 		labels = make(map[string]string)
 	}
@@ -166,9 +178,9 @@ func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstr
 		labels[key] = value
 	}
 
-	dpl.SetLabels(labels)
+	mw.SetLabels(labels)
 
-	annotations := dpl.GetAnnotations()
+	annotations := mw.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
@@ -178,20 +190,20 @@ func prepareDeployable(deployable *dplv1.Deployable, metaobj *unstructured.Unstr
 	annotations[dplv1.AnnotationManagedCluster] = explorer.ClusterName
 	annotations[dplv1.AnnotationLocal] = trueCondition
 	annotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
-	dpl.SetAnnotations(annotations)
+	mw.SetAnnotations(annotations)
 
-	return dpl
+	return mw
 }
 
-func locateDeployableForObject(metaobj *unstructured.Unstructured, explorer *utils.Explorer) (*dplv1.Deployable, error) {
-	dpllist, err := explorer.DynamicHubClient.Resource(deployableGVR).Namespace(explorer.ClusterName).List(context.TODO(), metav1.ListOptions{})
+func locateManifestWorkForObject(metaobj *unstructured.Unstructured, explorer *utils.Explorer) (*workapiv1.ManifestWork, error) {
+	mwlist, err := explorer.DynamicHubClient.Resource(manifestworkGVR).Namespace(explorer.ClusterName).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		klog.Error("Failed to list deployable objects from hub cluster namespace with error:", err)
+		klog.Error("Failed to list manifestwork objects from hub cluster namespace with error:", err)
 		return nil, err
 	}
 
-	for _, dpl := range dpllist.Items {
-		annotations := dpl.GetAnnotations()
+	for _, mw := range mwlist.Items {
+		annotations := mw.GetAnnotations()
 		if annotations == nil {
 			continue
 		}
@@ -203,20 +215,20 @@ func locateDeployableForObject(metaobj *unstructured.Unstructured, explorer *uti
 
 		srcobj, ok := annotations[corev1alpha1.SourceObject]
 		if ok && srcobj == key {
-			objdpl := &dplv1.Deployable{}
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(dpl.Object, objdpl); err != nil {
-				klog.Error("Cannot convert unstructured ", dpl.GetNamespace()+"/"+dpl.GetName(), " to deployable ")
+			objmw := &workapiv1.ManifestWork{}
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(mw.Object, objmw); err != nil {
+				klog.Error("Cannot convert unstructured ", mw.GetNamespace()+"/"+mw.GetName(), " to manifestwork ")
 				return nil, err
 			}
-			return objdpl, nil
+			return objmw, nil
 		}
 	}
 
 	return nil, nil
 }
 
-func locateObjectForDeployable(dpl metav1.Object, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
-	uc, err := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl)
+func locateObjectForManifestWork(mw metav1.Object, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
+	uc, err := runtime.DefaultUnstructuredConverter.ToUnstructured(mw)
 	if err != nil {
 		klog.Error("Failed to convert object to unstructured with error:", err)
 		return nil, err
@@ -224,25 +236,25 @@ func locateObjectForDeployable(dpl metav1.Object, explorer *utils.Explorer) (*un
 
 	kind, found, err := unstructured.NestedString(uc, "spec", "template", "kind")
 	if !found || err != nil {
-		klog.Error("Cannot get the wrapped object kind for deployable ", dpl.GetNamespace()+"/"+dpl.GetName())
+		klog.Error("Cannot get the wrapped object kind for manifestwork ", mw.GetNamespace()+"/"+mw.GetName())
 		return nil, err
 	}
 
-	gv, found, err := unstructured.NestedString(uc, "spec", "template", "apiVersion")
+	gv, found, err := unstructured.NestedString(uc, "spec", "template", "apiVersion") // TODO: revisit
 	if !found || err != nil {
-		klog.Error("Cannot get the wrapped object apiversion for deployable ", dpl.GetNamespace()+"/"+dpl.GetName())
+		klog.Error("Cannot get the wrapped object apiversion for manifestwork ", mw.GetNamespace()+"/"+mw.GetName())
 		return nil, err
 	}
 
-	name, found, err := unstructured.NestedString(uc, "spec", "template", "metadata", "name")
+	name, found, err := unstructured.NestedString(uc, "spec", "template", "metadata", "name") //TODO:revisit
 	if !found || err != nil {
-		klog.Error("Cannot get the wrapped object name for deployable ", dpl.GetNamespace()+"/"+dpl.GetName())
+		klog.Error("Cannot get the wrapped object name for deployable ", mw.GetNamespace()+"/"+mw.GetName())
 		return nil, err
 	}
 
-	namespace, _, err := unstructured.NestedString(uc, "spec", "template", "metadata", "namespace")
+	namespace, _, err := unstructured.NestedString(uc, "spec", "template", "metadata", "namespace") //TODO: revisit
 	if err != nil {
-		klog.Error("Cannot get the wrapped object namespace for deployable ", dpl.GetNamespace()+"/"+dpl.GetName(), " with error: ", err)
+		klog.Error("Cannot get the wrapped object namespace for deployable ", mw.GetNamespace()+"/"+mw.GetName(), " with error: ", err)
 		return nil, err
 	}
 
@@ -255,7 +267,7 @@ func locateObjectForDeployable(dpl metav1.Object, explorer *utils.Explorer) (*un
 	gvr := explorer.GVKGVRMap[gvk]
 
 	if _, ok := explorer.GVKGVRMap[gvk]; !ok {
-		klog.Error("Cannot get GVR for GVK ", gvk.String()+" for deployable "+dpl.GetNamespace()+"/"+dpl.GetName())
+		klog.Error("Cannot get GVR for GVK ", gvk.String()+" for deployable "+mw.GetNamespace()+"/"+mw.GetName())
 		return nil, err
 	}
 
@@ -267,7 +279,7 @@ func locateObjectForDeployable(dpl metav1.Object, explorer *utils.Explorer) (*un
 	}
 	if obj == nil || err != nil {
 		if errors.IsNotFound(err) {
-			klog.Error("Cannot find the wrapped object for deployable ", dpl.GetNamespace()+"/"+dpl.GetName())
+			klog.Error("Cannot find the wrapped object for deployable ", mw.GetNamespace()+"/"+mw.GetName())
 			return nil, nil
 		}
 
