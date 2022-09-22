@@ -28,13 +28,11 @@ import (
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 
-	workapiv1 "github.com/open-cluster-management/api/work/v1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
 	hdplutils "github.com/hybridapp-io/ham-deployable-operator/pkg/utils"
 	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
+	workapiv1 "github.com/open-cluster-management/api/work/v1"
 )
 
 const (
@@ -190,8 +188,8 @@ func prepareManifestWork(manifestwork *workapiv1.ManifestWork, metaobj *unstruct
 
 	annotations[corev1alpha1.SourceObject] = metaobj.GroupVersionKind().GroupVersion().String() +
 		"/" + metaobj.GetKind() + "/" + types.NamespacedName{Namespace: metaobj.GetNamespace(), Name: metaobj.GetName()}.String()
-	annotations[dplv1.AnnotationManagedCluster] = explorer.ClusterName
-	annotations[dplv1.AnnotationLocal] = trueCondition
+	annotations[corev1alpha1.AnnotationManagedCluster] = explorer.ClusterName
+	annotations[corev1alpha1.AnnotationLocal] = trueCondition
 	annotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
 	mw.SetAnnotations(annotations)
 

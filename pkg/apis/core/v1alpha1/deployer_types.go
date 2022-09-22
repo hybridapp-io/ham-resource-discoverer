@@ -33,6 +33,10 @@ var (
 	PropertyHostingDeployable = "hosting-deployable"
 
 	AnnotationHosting = SchemeGroupVersion.Group + "/" + PropertyHostingDeployable
+
+	AnnotationManagedCluster = SchemeGroupVersion.Group + "/managed-cluster"
+
+	AnnotationLocal = SchemeGroupVersion.Group + "/is-local-deployable"
 )
 
 // DeployerSpec defines the desired state of Deployer
