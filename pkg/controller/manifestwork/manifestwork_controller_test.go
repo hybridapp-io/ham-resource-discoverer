@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deployable
+package manifestwork
 
 import (
 	"context"
@@ -178,6 +178,7 @@ func TestNoGroupObject(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
+	g.Expect(err).NotTo(HaveOccurred())
 
 	c := mgr.GetClient()
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
@@ -273,6 +274,7 @@ func TestObjectWithOwnerReference(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
+	g.Expect(err).NotTo(HaveOccurred())
 
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
@@ -395,6 +397,7 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
+	g.Expect(err).NotTo(HaveOccurred())
 
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
@@ -494,6 +497,7 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
+	g.Expect(err).NotTo(HaveOccurred())
 
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
@@ -592,6 +596,7 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	explorer, err := utils.InitExplorer(hubClusterConfig, mgr.GetConfig(), mcName)
+	g.Expect(err).NotTo(HaveOccurred())
 
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 

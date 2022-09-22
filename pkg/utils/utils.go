@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,7 +88,8 @@ func PatchManagedClusterObject(explorer *Explorer, dpl *unstructured.Unstructure
 	klog.V(packageInfoLogLevel).Info("Patching object ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 
 	// if the object is controlled by other deployable, do not change its ownership
-	if hostingAnnotation, ok := (metaobj.GetAnnotations()[dplv1.AnnotationHosting]); ok {
+
+	if hostingAnnotation, ok := (metaobj.GetAnnotations()[corev1alpha1.AnnotationHosting]); ok {
 		var owner = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
 		if hostingAnnotation != owner {
 			klog.V(packageInfoLogLevel).Info("Not changing the ownership of ", metaobj.GetNamespace()+"/"+metaobj.GetName(),
@@ -117,7 +117,7 @@ func PatchManagedClusterObject(explorer *Explorer, dpl *unstructured.Unstructure
 
 	annotations[subv1.AnnotationHosting] = "/"
 	annotations[subv1.AnnotationSyncSource] = "subnsdpl-/"
-	annotations[dplv1.AnnotationHosting] = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
+	annotations[corev1alpha1.AnnotationHosting] = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
 
 	ucobj.SetAnnotations(annotations)
 	ucobj, err = explorer.DynamicMCClient.Resource(objgvr).Namespace(metaobj.GetNamespace()).Update(context.TODO(), ucobj, metav1.UpdateOptions{})
@@ -129,7 +129,7 @@ func PatchManagedClusterObject(explorer *Explorer, dpl *unstructured.Unstructure
 
 func GetHostingAnnotations() []string {
 	return []string{
-		dplv1.AnnotationHosting,
+		corev1alpha1.AnnotationHosting,
 		subv1.AnnotationHosting,
 	}
 }

@@ -31,7 +31,7 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/deployable"
+	"github.com/hybridapp-io/ham-resource-discoverer/pkg/controller/manifestwork"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
@@ -209,7 +209,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 		return err
 	}
 
-	var appComponents map[metav1.GroupKind]*unstructured.UnstructuredList = make(map[metav1.GroupKind]*unstructured.UnstructuredList)
+	var appComponents = make(map[metav1.GroupKind]*unstructured.UnstructuredList)
 
 	for _, componentKind := range app.Spec.ComponentGroupKinds {
 		klog.Info("Processing application GK ", componentKind.String())
@@ -258,7 +258,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 		for i := range objlist.Items {
 			item := objlist.Items[i]
 			klog.Info("Processing object ", item.GetName(), " in namespace ", item.GetNamespace(), " with kind ", item.GetKind())
-			if err = deployable.SyncDeployable(&item, r.Explorer); err != nil {
+			if err = manifestwork.SyncManifestWork(&item, r.Explorer); err != nil {
 				klog.Error("Failed to sync resource ", item.GetNamespace()+"/"+item.GetName(), " with error ", err)
 			}
 		}
