@@ -258,7 +258,7 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 		for i := range objlist.Items {
 			item := objlist.Items[i]
 			klog.Info("Processing object ", item.GetName(), " in namespace ", item.GetNamespace(), " with kind ", item.GetKind())
-			if err = deployable.SyncDeployable(&item, r.Explorer); err != nil {
+			if err = deployable.SyncManifestWork(&item, r.Explorer); err != nil {
 				klog.Error("Failed to sync resource ", item.GetNamespace()+"/"+item.GetName(), " with error ", err)
 			}
 		}

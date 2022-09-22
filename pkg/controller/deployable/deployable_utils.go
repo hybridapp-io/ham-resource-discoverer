@@ -135,12 +135,14 @@ func updateManifestWorkAndObject(mw *workapiv1.ManifestWork, metaobj *unstructur
 			return err
 		}
 		// avoid expensive reconciliation logic if no changes in the object structure
-		// TODO: revisit this. Not sure how to set manifest
+		manifests := []interface{}{
+			metaobj.Object,
+		}
 		if !reflect.DeepEqual(refreshedObject, metaobj) {
 			klog.Info("Updating manifestwork ", uc.GetNamespace()+"/"+uc.GetName())
 			prepareTemplate(metaobj)
-			if err = unstructured.SetNestedMap(uc.Object, metaobj.Object, "spec", "workload", "manifests"); err != nil {
-				klog.Error("Failed to set the spec template for manifestwork ", mw.Namespace+"/"+mw.Name)
+			if err = unstructured.SetNestedSlice(uc.Object, manifests, "spec", "workload", "manifests"); err != nil {
+				klog.Error("Failed to set the spec workload manifests for manifestwork ", mw.Namespace+"/"+mw.Name)
 				return err
 			}
 			// update the hybrid-discovery annotation
@@ -235,27 +237,27 @@ func locateObjectForManifestWork(mw metav1.Object, explorer *utils.Explorer) (*u
 		return nil, err
 	}
 
-	kind, found, err := unstructured.NestedString(uc, "spec", "template", "kind")
+	kind, found, err := unstructured.NestedString(uc, "spec", "workload", "manifests[0]", "kind")
 	if !found || err != nil {
 		klog.Error("Cannot get the wrapped object kind for manifestwork ", mw.GetNamespace()+"/"+mw.GetName())
 		return nil, err
 	}
 
-	gv, found, err := unstructured.NestedString(uc, "spec", "template", "apiVersion") // TODO: revisit
+	gv, found, err := unstructured.NestedString(uc, "spec", "workload", "manifests[0]", "apiVersion") // TODO: revisit
 	if !found || err != nil {
 		klog.Error("Cannot get the wrapped object apiversion for manifestwork ", mw.GetNamespace()+"/"+mw.GetName())
 		return nil, err
 	}
 
-	name, found, err := unstructured.NestedString(uc, "spec", "template", "metadata", "name") //TODO:revisit
+	name, found, err := unstructured.NestedString(uc, "spec", "workload", "manifests[0]", "metadata", "name") //TODO:revisit
 	if !found || err != nil {
-		klog.Error("Cannot get the wrapped object name for deployable ", mw.GetNamespace()+"/"+mw.GetName())
+		klog.Error("Cannot get the wrapped object name for manifestwork ", mw.GetNamespace()+"/"+mw.GetName())
 		return nil, err
 	}
 
-	namespace, _, err := unstructured.NestedString(uc, "spec", "template", "metadata", "namespace") //TODO: revisit
+	namespace, _, err := unstructured.NestedString(uc, "spec", "workload", "manifests[0]", "metadata", "namespace") //TODO: revisit
 	if err != nil {
-		klog.Error("Cannot get the wrapped object namespace for deployable ", mw.GetNamespace()+"/"+mw.GetName(), " with error: ", err)
+		klog.Error("Cannot get the wrapped object namespace for manifestwork ", mw.GetNamespace()+"/"+mw.GetName(), " with error: ", err)
 		return nil, err
 	}
 

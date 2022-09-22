@@ -38,7 +38,7 @@ import (
 
 var (
 	resync          = 20 * time.Minute
-	workmanifestGVK = schema.GroupVersionKind{
+	manifestworkGVK = schema.GroupVersionKind{
 		Group:   workapiv1.SchemeGroupVersion.Group,
 		Version: workapiv1.SchemeGroupVersion.Version,
 		Kind:    "ManifestWork",
