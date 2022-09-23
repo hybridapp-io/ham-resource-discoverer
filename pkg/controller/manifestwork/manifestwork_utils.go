@@ -244,25 +244,25 @@ func locateObjectForManifestWork(mw metav1.Object, explorer *utils.Explorer) (*u
 		klog.Error("Failed to convert manifest to unstructured with error:", err)
 		return nil, err
 	}
-	kind, found, err := unstructured.NestedString(manifest, "spec", "workload", "manifests[0]", "kind")
+	kind, found, err := unstructured.NestedString(manifest, "kind")
 	if !found || err != nil {
 		klog.Error("Cannot get the wrapped object kind for manifestwork ", mw.GetNamespace()+"/"+mw.GetName())
 		return nil, err
 	}
 
-	gv, found, err := unstructured.NestedString(manifest, "spec", "workload", "manifests[0]", "apiVersion") // TODO: revisit
+	gv, found, err := unstructured.NestedString(manifest, "spec", "apiVersion") // TODO: revisit
 	if !found || err != nil {
 		klog.Error("Cannot get the wrapped object apiversion for manifestwork ", mw.GetNamespace()+"/"+mw.GetName())
 		return nil, err
 	}
 
-	name, found, err := unstructured.NestedString(manifest, "spec", "workload", "manifests[0]", "metadata", "name") //TODO:revisit
+	name, found, err := unstructured.NestedString(manifest, "spec", "metadata", "name") //TODO:revisit
 	if !found || err != nil {
 		klog.Error("Cannot get the wrapped object name for manifestwork ", mw.GetNamespace()+"/"+mw.GetName())
 		return nil, err
 	}
 
-	namespace, _, err := unstructured.NestedString(manifest, "spec", "workload", "manifests[0]", "metadata", "namespace") //TODO: revisit
+	namespace, _, err := unstructured.NestedString(manifest, "spec", "metadata", "namespace") //TODO: revisit
 	if err != nil {
 		klog.Error("Cannot get the wrapped object namespace for manifestwork ", mw.GetNamespace()+"/"+mw.GetName(), " with error: ", err)
 		return nil, err
