@@ -53,6 +53,7 @@ func InitExplorer(hubconfig, mcconfig *rest.Config, clusterName string) (*Explor
 		return nil, err
 	}
 
+	klog.Info("##### DEBUG: create dynamic hub client")
 	explorer.DynamicHubClient, err = dynamic.NewForConfig(hubconfig)
 	if err != nil {
 		klog.Error("Failed to create dynamic client for explorer", err)

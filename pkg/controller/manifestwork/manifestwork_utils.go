@@ -41,6 +41,7 @@ const (
 )
 
 func SyncManifestWork(metaobj *unstructured.Unstructured, explorer *utils.Explorer) error {
+	klog.Info("##### DEBUG: Starting func SyncManifestWork")
 
 	annotations := metaobj.GetAnnotations()
 	if annotations != nil {
@@ -79,6 +80,8 @@ func SyncManifestWork(metaobj *unstructured.Unstructured, explorer *utils.Explor
 
 func updateManifestWorkAndObject(mw *workapiv1.ManifestWork, metaobj *unstructured.Unstructured,
 	explorer *utils.Explorer) error {
+
+	klog.Info("##### DEBUG: Starting func updateManifestWorkAndObject")
 
 	// Find the root resource with no owner reference
 	rootobj, err := findRootResource(metaobj, explorer)
@@ -168,6 +171,7 @@ func updateManifestWorkAndObject(mw *workapiv1.ManifestWork, metaobj *unstructur
 }
 
 func prepareManifestWork(manifestwork *workapiv1.ManifestWork, metaobj *unstructured.Unstructured, explorer *utils.Explorer) *workapiv1.ManifestWork {
+	klog.Info("##### DEBUG: Starting func prepareManifestWork")
 	mw := manifestwork.DeepCopy()
 
 	labels := mw.GetLabels()
@@ -197,6 +201,7 @@ func prepareManifestWork(manifestwork *workapiv1.ManifestWork, metaobj *unstruct
 }
 
 func locateManifestWorkForObject(metaobj *unstructured.Unstructured, explorer *utils.Explorer) (*workapiv1.ManifestWork, error) {
+	klog.Info("##### DEBUG: Starting func locateManifestWorkForObject")
 	klog.Info("Getting list of manifestworks...")
 	mwlist, err := explorer.DynamicHubClient.Resource(manifestworkGVR).Namespace(explorer.ClusterName).List(context.TODO(), metav1.ListOptions{})
 	klog.Info("Done retrieving manifestworks list")
@@ -231,6 +236,7 @@ func locateManifestWorkForObject(metaobj *unstructured.Unstructured, explorer *u
 }
 
 func locateObjectForManifestWork(mw metav1.Object, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
+	klog.Info("##### DEBUG: Starting func locateObjectForManifestWork")
 	uc, err := runtime.DefaultUnstructuredConverter.ToUnstructured(mw)
 	if err != nil {
 		klog.Error("Failed to convert object to unstructured with error:", err)
@@ -308,6 +314,7 @@ var (
 )
 
 func prepareTemplate(metaobj metav1.Object) {
+	klog.Info("##### DEBUG: Starting func prepareTemplate")
 	var emptyuid types.UID
 
 	metaobj.SetUID(emptyuid)
@@ -329,6 +336,7 @@ func prepareTemplate(metaobj metav1.Object) {
 
 // Recurses up the chain of OwnerReferences and returns the resource without an OwnerReference
 func findRootResource(usobj *unstructured.Unstructured, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
+	klog.Info("##### DEBUG: Starting func findRootResource")
 	// Check if there are Owners associated with the object
 	if usobj.GetOwnerReferences() == nil {
 		// If there are no owners return the current resource
@@ -356,6 +364,7 @@ func findRootResource(usobj *unstructured.Unstructured, explorer *utils.Explorer
 }
 
 func locateObjectForOwnerReference(dpl *metav1.OwnerReference, namespace string, explorer *utils.Explorer) (*unstructured.Unstructured, error) {
+	klog.Info("##### DEBUG: Starting func locateObjectForOwnerReference")
 	uc, err := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl)
 	if err != nil {
 		klog.Error("Failed to convert object to unstructured with error:", err)

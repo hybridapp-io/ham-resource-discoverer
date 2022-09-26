@@ -102,6 +102,7 @@ func RunManager(sig <-chan struct{}) {
 		os.Exit(errorExitCode)
 	}
 
+	klog.Info("##### DEBUG: creating hubconfig")
 	hubconfig := mgr.GetConfig()
 	if Options.HubConfigFilePathName != "" {
 		hubconfig, err = clientcmd.BuildConfigFromFlags("", Options.HubConfigFilePathName)
@@ -111,6 +112,7 @@ func RunManager(sig <-chan struct{}) {
 		}
 	}
 
+	klog.Info("##### DEBUG: AddToManager")
 	if err := controller.AddToManager(mgr, hubconfig, Options.ClusterName); err != nil {
 		klog.Error(err, "")
 		os.Exit(errorExitCode)
