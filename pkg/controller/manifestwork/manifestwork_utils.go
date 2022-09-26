@@ -197,7 +197,9 @@ func prepareManifestWork(manifestwork *workapiv1.ManifestWork, metaobj *unstruct
 }
 
 func locateManifestWorkForObject(metaobj *unstructured.Unstructured, explorer *utils.Explorer) (*workapiv1.ManifestWork, error) {
+	klog.Info("Getting list of manifestworks...")
 	mwlist, err := explorer.DynamicHubClient.Resource(manifestworkGVR).Namespace(explorer.ClusterName).List(context.TODO(), metav1.ListOptions{})
+	klog.Info("Done retrieving manifestworks list")
 	if err != nil {
 		klog.Error("Failed to list manifestwork objects from hub cluster namespace with error:", err)
 		return nil, err
