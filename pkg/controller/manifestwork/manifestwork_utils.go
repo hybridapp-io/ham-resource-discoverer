@@ -341,13 +341,16 @@ func findRootResource(usobj *unstructured.Unstructured, explorer *utils.Explorer
 	// Check if there are Owners associated with the object
 	if usobj.GetOwnerReferences() == nil {
 		// If there are no owners return the current resource
+		klog.Info("##### DEBUG: findRootResource: no owners")
 		return usobj, nil
 	}
 	// Ensure there is at least one owner reference
 	if len(usobj.GetOwnerReferences()) > 0 {
+		klog.Info("##### DEBUG: findRootResource: at least one owner")
 		or := usobj.GetOwnerReferences()[0]
 		// Get object for this owner reference
 		ns := usobj.GetNamespace()
+		klog.Info("##### DEBUG: findRootResource: search in namespace ", ns)
 		newobj, err := locateObjectForOwnerReference(&or, ns, explorer)
 		if err != nil {
 			klog.Error("Failed to retrieve the wrapped object for owner ref ", usobj.GetNamespace()+"/"+usobj.GetName()+" with error: ", err)
@@ -377,18 +380,21 @@ func locateObjectForOwnerReference(dpl *metav1.OwnerReference, namespace string,
 		klog.Error("Cannot get the wrapped object kind for owner ref ", namespace+"/"+dpl.Name)
 		return nil, err
 	}
+	klog.Info("##### DEBUG: locateObjectForOwnerReference: found kind ", kind)
 
 	gv, found, err := unstructured.NestedString(uc, "apiVersion")
 	if !found || err != nil {
 		klog.Error("Cannot get the wrapped object apiversion for owner ref ", namespace+"/"+dpl.Name)
 		return nil, err
 	}
+	klog.Info("##### DEBUG: locateObjectForOwnerReference: found apiVersion ", gv)
 
 	name, found, err := unstructured.NestedString(uc, "name")
 	if !found || err != nil {
 		klog.Error("Cannot get the wrapped object name for owner ref ", namespace+"/"+dpl.Name)
 		return nil, err
 	}
+	klog.Info("##### DEBUG: locateObjectForOwnerReference: found name ", name)
 
 	gvk := schema.GroupVersionKind{
 		Group:   utils.StripVersion(gv),
@@ -402,6 +408,7 @@ func locateObjectForOwnerReference(dpl *metav1.OwnerReference, namespace string,
 		klog.Error("Cannot get GVR for GVK ", gvk.String()+" for owner ref "+namespace+"/"+dpl.Name)
 		return nil, err
 	}
+	klog.Info("##### DEBUG: locateObjectForOwnerReference: found gvr ", gvr.String())
 
 	obj, err := explorer.DynamicMCClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if obj == nil || err != nil {
@@ -413,5 +420,6 @@ func locateObjectForOwnerReference(dpl *metav1.OwnerReference, namespace string,
 		return nil, err
 	}
 
+	klog.Info("##### DEBUG: locateObjectForOwnerReference: found wrapped object")
 	return obj, nil
 }
