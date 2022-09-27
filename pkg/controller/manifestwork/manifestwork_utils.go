@@ -353,6 +353,11 @@ func findRootResource(usobj *unstructured.Unstructured, explorer *utils.Explorer
 		klog.Info("##### DEBUG: findRootResource: search in namespace ", ns)
 		newobj, err := locateObjectForOwnerReference(&or, ns, explorer)
 		if err != nil {
+			// if owner not found, return current resource
+			if errors.IsNotFound(err) {
+				klog.Info("##### DEBUG: findRootResource: owner reference not found. Return current resource")
+				return usobj, nil
+			}
 			klog.Error("Failed to retrieve the wrapped object for owner ref ", usobj.GetNamespace()+"/"+usobj.GetName()+" with error: ", err)
 			return nil, err
 		}
@@ -412,12 +417,18 @@ func locateObjectForOwnerReference(dpl *metav1.OwnerReference, namespace string,
 
 	obj, err := explorer.DynamicMCClient.Resource(gvr).Namespace(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 	if obj == nil || err != nil {
-		if errors.IsNotFound(err) {
-			klog.Error("Cannot find the wrapped object for owner ref ", namespace+"/"+dpl.Name)
-			return nil, nil
+		// look for cluster scoped resource if can't find in namespace
+		klog.Info("##### DEBUG: locateObjectForOwnerReference: Cannot find owner reference in namespace. Search cluster scope")
+		obj, err = explorer.DynamicMCClient.Resource(gvr).Get(context.TODO(), name, metav1.GetOptions{})
+		if obj == nil || err != nil {
+			if errors.IsNotFound(err) {
+				klog.Error("Cannot find the wrapped object for owner ref ", namespace+"/"+dpl.Name)
+			}
+			return nil, err
 		}
 
-		return nil, err
+		klog.Info("##### DEBUG: locateObjectForOwnerReference: Found wrapped object")
+		return obj, nil
 	}
 
 	klog.Info("##### DEBUG: locateObjectForOwnerReference: found wrapped object")
