@@ -30,7 +30,9 @@ import (
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+
+	// dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	workapiv1 "github.com/open-cluster-management/api/work/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
@@ -90,7 +92,7 @@ var (
 			},
 		},
 	}
-	mcSVCDeployable = &dplv1.Deployable{
+	mcSVCManifestWork = &workapiv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcServiceName,
 			Namespace: mcName,
@@ -101,14 +103,20 @@ var (
 				hdplv1alpha1.AnnotationHybridDiscovery: hdplv1alpha1.HybridDiscoveryEnabled,
 			},
 		},
-		Spec: dplv1.DeployableSpec{
-			Template: &runtime.RawExtension{
-				Object: mcService,
+		Spec: workapiv1.ManifestWorkSpec{
+			Workload: workapiv1.ManifestsTemplate{
+				Manifests: []workapiv1.Manifest{
+					{
+						runtime.RawExtension{
+							Object: mcService,
+						},
+					},
+				},
 			},
 		},
 	}
 
-	mcPodDeployable = &dplv1.Deployable{
+	mcPodManifestWork = &workapiv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcPodName,
 			Namespace: mcName,
@@ -119,14 +127,20 @@ var (
 				hdplv1alpha1.AnnotationHybridDiscovery: hdplv1alpha1.HybridDiscoveryEnabled,
 			},
 		},
-		Spec: dplv1.DeployableSpec{
-			Template: &runtime.RawExtension{
-				Object: mcPod,
+		Spec: workapiv1.ManifestWorkSpec{
+			Workload: workapiv1.ManifestsTemplate{
+				Manifests: []workapiv1.Manifest{
+					{
+						runtime.RawExtension{
+							Object: mcPod,
+						},
+					},
+				},
 			},
 		},
 	}
 
-	mcSTSDeployable = &dplv1.Deployable{
+	mcSTSManifestWork = &workapiv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcSTSName,
 			Namespace: mcName,
@@ -137,9 +151,14 @@ var (
 				hdplv1alpha1.AnnotationHybridDiscovery: hdplv1alpha1.HybridDiscoveryEnabled,
 			},
 		},
-		Spec: dplv1.DeployableSpec{
-			Template: &runtime.RawExtension{
-				Object: mcSTS,
+		Spec: workapiv1.ManifestWorkSpec{
+			Workload: workapiv1.ManifestsTemplate{
+				Manifests: []workapiv1.Manifest{
+					{
+						runtime.RawExtension{
+							Object: mcSTS},
+					},
+				},
 			},
 		},
 	}
@@ -183,7 +202,7 @@ func TestNoGroupObject(t *testing.T) {
 	c := mgr.GetClient()
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
-	ds := SetupDeployableSync(rec)
+	ds := SetupManifestWorkSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
@@ -233,37 +252,37 @@ func TestNoGroupObject(t *testing.T) {
 		}
 	}()
 
-	// create the deployable on the hub
-	dpl := mcSVCDeployable.DeepCopy()
-	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl)
+	// create the manifestWork on the hub
+	mw := mcSVCManifestWork.DeepCopy()
+	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(mw)
 	uc = &unstructured.Unstructured{}
 	uc.SetUnstructuredContent(dplUC)
-	uc.SetGroupVersionKind(deployableGVK)
-	deployablegvr := explorer.GVKGVRMap[deployableGVK]
-	if _, err := hubDynamicClient.Resource(deployablegvr).Namespace(dpl.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
+	uc.SetGroupVersionKind(manifestWorkGVK)
+	manifestWorkgvr := explorer.GVKGVRMap[manifestWorkGVK]
+	if _, err := hubDynamicClient.Resource(manifestWorkgvr).Namespace(mw.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.Name, metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(manifestWorkGVR).Namespace(mw.Namespace).Delete(context.TODO(), mw.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
 	}()
 
-	if _, err := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), mcSVCDeployable.Name, metav1.GetOptions{}); err != nil {
+	if _, err := hubDynamicClient.Resource(manifestWorkGVR).Namespace(mw.Namespace).Get(context.TODO(), mcSVCManifestWork.Name, metav1.GetOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
-	// wait for the deployable sync to come through on hub
+	// wait for the manifestWork sync to come through on hub
 	<-ds.(DeployableSync).createCh
 	<-ds.(DeployableSync).updateCh
 
 	// validate the annotation/labels created on the MC object
 	newSVC, _ := mcDynamicClient.Resource(svcGVR).Namespace(svc.Namespace).Get(context.TODO(), svc.Name, metav1.GetOptions{})
 	annotations := newSVC.GetAnnotations()
-	g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(dpl.Namespace + "/" + dpl.Name))
+	g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(mw.Namespace + "/" + mw.Name))
 	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
 	g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
 }
@@ -335,25 +354,25 @@ func TestObjectWithOwnerReference(t *testing.T) {
 	}()
 
 	// create the deployable on the hub
-	dpl := mcPodDeployable.DeepCopy()
-	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl)
+	mw := mcPodManifestWork.DeepCopy()
+	mwUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(mw)
 	uc = &unstructured.Unstructured{}
-	uc.SetUnstructuredContent(dplUC)
+	uc.SetUnstructuredContent(mwUC)
 	uc.SetGroupVersionKind(deployableGVK)
 	deployablegvr := explorer.GVKGVRMap[deployableGVK]
-	if _, err := hubDynamicClient.Resource(deployablegvr).Namespace(dpl.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
+	if _, err := hubDynamicClient.Resource(deployablegvr).Namespace(mw.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.Name, metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(deployableGVR).Namespace(mw.Namespace).Delete(context.TODO(), mw.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
 	}()
 
-	if _, err := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), mcPodDeployable.Name, metav1.GetOptions{}); err != nil {
+	if _, err := hubDynamicClient.Resource(deployableGVR).Namespace(mw.Namespace).Get(context.TODO(), mcPodDeployable.Name, metav1.GetOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -361,7 +380,7 @@ func TestObjectWithOwnerReference(t *testing.T) {
 	<-ds.(DeployableSync).createCh
 	<-ds.(DeployableSync).updateCh
 
-	hubDep, err := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), mcPodDeployable.Name, metav1.GetOptions{})
+	hubDep, err := hubDynamicClient.Resource(deployableGVR).Namespace(mw.Namespace).Get(context.TODO(), mcPodDeployable.Name, metav1.GetOptions{})
 
 	g.Expect(hubDep.GetKind()).To(Equal("Deployable"))
 
