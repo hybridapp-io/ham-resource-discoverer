@@ -53,14 +53,12 @@ var (
 )
 
 func Add(mgr manager.Manager, hubconfig *rest.Config, clusterName string) error {
-	klog.Info("##### DEBUG: init explorer")
 	explorer, err := utils.InitExplorer(hubconfig, mgr.GetConfig(), clusterName)
 	if err != nil {
 		klog.Error("Failed to initialize the explorer")
 		return err
 	}
 
-	klog.Info("##### DEBUG: new reconciler")
 	reconciler, err := NewReconciler(mgr, hubconfig, clusterName, explorer)
 	if err != nil {
 		klog.Error("Failed to create the deployer reconciler ", err)

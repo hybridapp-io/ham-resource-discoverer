@@ -33,7 +33,6 @@ import (
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 	sigappv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
 
-	// dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	workapiv1 "github.com/open-cluster-management/api/work/v1"
 )
 

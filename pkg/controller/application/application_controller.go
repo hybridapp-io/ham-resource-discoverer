@@ -78,14 +78,14 @@ func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, clusterName stri
 	return reconciler, nil
 }
 
-// ReconcileDeployable reconciles a Deployable object
+// ReconcileApplication reconciles a Application object
 type ReconcileApplication struct {
 	Explorer         *utils.Explorer
 	DynamicMCFactory dynamicinformer.DynamicSharedInformerFactory
 	StopCh           chan struct{}
 }
 
-// blank assignment to verify that ReconcileDeployer implements ReconcileDeployableInterface
+// blank assignment to verify that ReconcileDeployer implements ReconcileApplicationInterface
 var _ ReconcileApplicationInterface = &ReconcileApplication{}
 
 type ReconcileApplicationInterface interface {
@@ -97,7 +97,6 @@ type ReconcileApplicationInterface interface {
 }
 
 func (r *ReconcileApplication) isAppDiscoveryEnabled(app *unstructured.Unstructured) bool {
-	klog.Info("##### DEBUG: Starting func isAppDiscoveryEnabled")
 	if _, enabled := app.GetAnnotations()[hdplv1alpha1.AnnotationHybridDiscovery]; !enabled ||
 		app.GetAnnotations()[hdplv1alpha1.AnnotationHybridDiscovery] != hdplv1alpha1.HybridDiscoveryEnabled {
 		return false
@@ -107,7 +106,6 @@ func (r *ReconcileApplication) isAppDiscoveryEnabled(app *unstructured.Unstructu
 }
 
 func (r *ReconcileApplication) isDiscoveryClusterScoped(obj *unstructured.Unstructured) bool {
-	klog.Info("##### DEBUG: Starting func isDiscoveryClusterScoped")
 	if _, enabled := obj.GetAnnotations()[hdplv1alpha1.AnnotationClusterScope]; !enabled ||
 		obj.GetAnnotations()[hdplv1alpha1.AnnotationClusterScope] != "true" {
 		return false
@@ -117,7 +115,6 @@ func (r *ReconcileApplication) isDiscoveryClusterScoped(obj *unstructured.Unstru
 }
 
 func (r *ReconcileApplication) Start() {
-	klog.Info("##### DEBUG: Starting func Start")
 	r.Stop()
 
 	if r.Explorer == nil || r.DynamicMCFactory == nil {
@@ -150,7 +147,6 @@ func (r *ReconcileApplication) Start() {
 }
 
 func (r *ReconcileApplication) Stop() {
-	klog.Info("##### DEBUG: Starting func Stop")
 	if r.StopCh != nil {
 		r.DynamicMCFactory.WaitForCacheSync(r.StopCh)
 		close(r.StopCh)
@@ -159,7 +155,6 @@ func (r *ReconcileApplication) Stop() {
 }
 
 func (r *ReconcileApplication) SyncCreateApplication(newObj interface{}) {
-	klog.Info("##### DEBUG: Starting func SyncCreateApplication")
 	ucNew := newObj.(*unstructured.Unstructured)
 	if !r.isAppDiscoveryEnabled(ucNew) {
 		return
@@ -171,7 +166,6 @@ func (r *ReconcileApplication) SyncCreateApplication(newObj interface{}) {
 }
 
 func (r *ReconcileApplication) SyncUpdateApplication(oldObj, newObj interface{}) {
-	klog.Info("##### DEBUG: Starting func SyncUpdateApplication")
 
 	ucOld := oldObj.(*unstructured.Unstructured)
 	oldSpec, _, err := unstructured.NestedMap(ucOld.Object, "spec")
@@ -200,13 +194,9 @@ func (r *ReconcileApplication) SyncUpdateApplication(oldObj, newObj interface{})
 	}
 }
 
-func (r *ReconcileApplication) SyncRemoveApplication(oldObj interface{}) {
-	klog.Info("##### DEBUG: Starting func SyncRemoveApplication")
-
-}
+func (r *ReconcileApplication) SyncRemoveApplication(oldObj interface{}) {}
 
 func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) error {
-	klog.Info("##### DEBUG: Starting func syncApplication")
 
 	// convert obj to Application
 	app := &sigappv1beta1.Application{}
@@ -224,14 +214,12 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 		for gvk, gvr := range r.Explorer.GVKGVRMap {
 
 			if gvk.Kind == componentKind.Kind {
-				klog.Info("##### DEBUG: Found matching gvk")
 				// for v1 core group (which is the empty name group), application label selectors use v1 as group name
 				if (gvk.Group == "" && gvk.Version == componentKind.Group) || (gvk.Group != "" && gvk.Group == componentKind.Group) {
 					klog.V(packageInfoLogLevel).Info("Successfully found GVR ", gvr.String())
 
 					var objlist *unstructured.UnstructuredList
 					if r.isDiscoveryClusterScoped(obj) {
-						klog.Info("##### DEBUG: Cluster scoped")
 						// retrieve all components, cluster wide
 						objlist, err = r.Explorer.DynamicMCClient.Resource(gvr).List(context.TODO(),
 							metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})
@@ -243,7 +231,6 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 						}
 
 					} else {
-						klog.Info("##### DEBUG: namespace scoped")
 						// retrieve only namespaced components
 						objlist, err = r.Explorer.DynamicMCClient.Resource(gvr).Namespace(obj.GetNamespace()).List(context.TODO(),
 							metav1.ListOptions{LabelSelector: labels.Set(app.Spec.Selector.MatchLabels).String()})
@@ -258,7 +245,6 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 						return err
 					}
 					appComponents[componentKind] = objlist
-					klog.Info("##### DEBUG: Done making object list with len ", len(objlist.Items))
 					break
 				}
 			}
@@ -266,7 +252,6 @@ func (r *ReconcileApplication) syncApplication(obj *unstructured.Unstructured) e
 	}
 
 	// process the components on managed cluster and creates deployables on hub for them
-	klog.Info("##### DEBUG: Creating deployables on hub")
 	for _, objlist := range appComponents {
 		for i := range objlist.Items {
 			item := objlist.Items[i]
