@@ -32,14 +32,15 @@ import (
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 	sigappv1beta1 "github.com/kubernetes-sigs/application/pkg/apis/app/v1beta1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+
+	workapiv1 "github.com/open-cluster-management/api/work/v1"
 )
 
 var (
-	deployableGVR = schema.GroupVersionResource{
-		Group:    dplv1.SchemeGroupVersion.Group,
-		Version:  dplv1.SchemeGroupVersion.Version,
-		Resource: "deployables",
+	manifestworkGVR = schema.GroupVersionResource{
+		Group:    workapiv1.SchemeGroupVersion.Group,
+		Version:  workapiv1.SchemeGroupVersion.Version,
+		Resource: "manifestworks",
 	}
 
 	webServiceName   = "wordpress-webserver-svc"
@@ -255,24 +256,25 @@ func TestApplicationDiscovery(t *testing.T) {
 	// wait on app reconcile on MC
 	<-as.(ApplicationSync).CreateCh
 
-	// retrieve deployablelist on hub
-	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
-	// expect only 2 deployables, as the configmap was created in another namespace
-	g.Expect(dplList.Items).To(HaveLen(2))
+	// retrieve manifestworklist on hub
+	mwList, _ := hubDynamicClient.Resource(manifestworkGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
+	// expect only 2 manifestworks, as the configmap was created in another namespace
+	g.Expect(mwList.Items).To(HaveLen(2))
 	kinds := [2]string{"Service", "StatefulSet"}
 
-	// validate deployables on hub
-	for _, dpl := range dplList.Items {
-		// spec containing the template
-		tpl, _, _ := unstructured.NestedMap(dpl.Object, "spec", "template")
-		g.Expect(tpl).To(Not(BeNil()))
-		g.Expect(tpl["kind"]).To(BeElementOf(kinds))
+	// validate manifestworks on hub
+	for _, mw := range mwList.Items {
+		// spec containing the manifest
+		manifests, _, _ := unstructured.NestedSlice(mw.Object, "spec", "workload", "manifests")
+		manifest, _ := manifests[0].(map[string]interface{})
+		g.Expect(manifest).To(Not(BeNil()))
+		g.Expect(manifest["kind"]).To(BeElementOf(kinds))
 
-		annotations, _, _ := unstructured.NestedMap(dpl.Object, "metadata", "annotations")
+		annotations, _, _ := unstructured.NestedMap(mw.Object, "metadata", "annotations")
 		g.Expect(annotations).To(Not(BeNil()))
 		g.Expect(annotations[hdplv1alpha1.AnnotationHybridDiscovery]).To(Equal(hdplv1alpha1.HybridDiscoveryEnabled))
 
-		labels, _, _ := unstructured.NestedMap(dpl.Object, "spec", "template", "metadata", "labels")
+		labels, _, _ := unstructured.NestedMap(manifest, "metadata", "labels")
 		g.Expect(labels).To(Not(BeNil()))
 		g.Expect(labels[appLabelSelector]).To(Equal(applicationName))
 	}
@@ -308,10 +310,10 @@ func TestApplicationDiscovery(t *testing.T) {
 	// wait on app reconcile on MC
 	<-as.(ApplicationSync).UpdateCh
 
-	// retrieve deployablelist on hub
-	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
-	// expect 3 deployables, as the configmap is covered now by AnnotationClusterScope
-	g.Expect(dplList.Items).To(HaveLen(3))
+	// retrieve manifestworklist on hub
+	mwList, _ = hubDynamicClient.Resource(manifestworkGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
+	// expect 3 manifestworks, as the configmap is covered now by AnnotationClusterScope
+	g.Expect(mwList.Items).To(HaveLen(3))
 
 	// update application by removing the discovery annotation
 	annotations, _, _ = unstructured.NestedMap(uc.Object, "metadata", "annotations")

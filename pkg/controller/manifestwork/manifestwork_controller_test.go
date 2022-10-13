@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deployable
+package manifestwork
 
 import (
 	"context"
@@ -29,8 +29,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
+	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+
+	workapiv1 "github.com/open-cluster-management/api/work/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
@@ -90,7 +92,7 @@ var (
 			},
 		},
 	}
-	mcSVCDeployable = &dplv1.Deployable{
+	mcSVCManifestWork = &workapiv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcServiceName,
 			Namespace: mcName,
@@ -101,14 +103,20 @@ var (
 				hdplv1alpha1.AnnotationHybridDiscovery: hdplv1alpha1.HybridDiscoveryEnabled,
 			},
 		},
-		Spec: dplv1.DeployableSpec{
-			Template: &runtime.RawExtension{
-				Object: mcService,
+		Spec: workapiv1.ManifestWorkSpec{
+			Workload: workapiv1.ManifestsTemplate{
+				Manifests: []workapiv1.Manifest{
+					{
+						runtime.RawExtension{
+							Object: mcService,
+						},
+					},
+				},
 			},
 		},
 	}
 
-	mcPodDeployable = &dplv1.Deployable{
+	mcPodManifestWork = &workapiv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcPodName,
 			Namespace: mcName,
@@ -119,14 +127,20 @@ var (
 				hdplv1alpha1.AnnotationHybridDiscovery: hdplv1alpha1.HybridDiscoveryEnabled,
 			},
 		},
-		Spec: dplv1.DeployableSpec{
-			Template: &runtime.RawExtension{
-				Object: mcPod,
+		Spec: workapiv1.ManifestWorkSpec{
+			Workload: workapiv1.ManifestsTemplate{
+				Manifests: []workapiv1.Manifest{
+					{
+						runtime.RawExtension{
+							Object: mcPod,
+						},
+					},
+				},
 			},
 		},
 	}
 
-	mcSTSDeployable = &dplv1.Deployable{
+	mcSTSManifestWork = &workapiv1.ManifestWork{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mcSTSName,
 			Namespace: mcName,
@@ -137,9 +151,14 @@ var (
 				hdplv1alpha1.AnnotationHybridDiscovery: hdplv1alpha1.HybridDiscoveryEnabled,
 			},
 		},
-		Spec: dplv1.DeployableSpec{
-			Template: &runtime.RawExtension{
-				Object: mcSTS,
+		Spec: workapiv1.ManifestWorkSpec{
+			Workload: workapiv1.ManifestsTemplate{
+				Manifests: []workapiv1.Manifest{
+					{
+						runtime.RawExtension{
+							Object: mcSTS},
+					},
+				},
 			},
 		},
 	}
@@ -183,7 +202,7 @@ func TestNoGroupObject(t *testing.T) {
 	c := mgr.GetClient()
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
-	ds := SetupDeployableSync(rec)
+	ds := SetupManifestWorkSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
@@ -233,37 +252,37 @@ func TestNoGroupObject(t *testing.T) {
 		}
 	}()
 
-	// create the deployable on the hub
-	dpl := mcSVCDeployable.DeepCopy()
-	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl)
+	// create the manifestWork on the hub
+	mw := mcSVCManifestWork.DeepCopy()
+	mwUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(mw)
 	uc = &unstructured.Unstructured{}
-	uc.SetUnstructuredContent(dplUC)
-	uc.SetGroupVersionKind(deployableGVK)
-	deployablegvr := explorer.GVKGVRMap[deployableGVK]
-	if _, err := hubDynamicClient.Resource(deployablegvr).Namespace(dpl.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
+	uc.SetUnstructuredContent(mwUC)
+	uc.SetGroupVersionKind(manifestworkGVK)
+	manifestWorkgvr := explorer.GVKGVRMap[manifestworkGVK]
+	if _, err := hubDynamicClient.Resource(manifestWorkgvr).Namespace(mw.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.Name, metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Delete(context.TODO(), mw.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
 	}()
 
-	if _, err := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), mcSVCDeployable.Name, metav1.GetOptions{}); err != nil {
+	if _, err := hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Get(context.TODO(), mcSVCManifestWork.Name, metav1.GetOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
-	// wait for the deployable sync to come through on hub
-	<-ds.(DeployableSync).createCh
-	<-ds.(DeployableSync).updateCh
+	// wait for the manifestWork sync to come through on hub
+	<-ds.(ManifestWorkSync).createCh
+	<-ds.(ManifestWorkSync).updateCh
 
 	// validate the annotation/labels created on the MC object
 	newSVC, _ := mcDynamicClient.Resource(svcGVR).Namespace(svc.Namespace).Get(context.TODO(), svc.Name, metav1.GetOptions{})
 	annotations := newSVC.GetAnnotations()
-	g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(dpl.Namespace + "/" + dpl.Name))
+	g.Expect(annotations[corev1alpha1.AnnotationHosting]).To(Equal(mw.Namespace + "/" + mw.Name))
 	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
 	g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
 }
@@ -278,7 +297,7 @@ func TestObjectWithOwnerReference(t *testing.T) {
 
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
-	ds := SetupDeployableSync(rec)
+	ds := SetupManifestWorkSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
@@ -334,55 +353,67 @@ func TestObjectWithOwnerReference(t *testing.T) {
 		}
 	}()
 
-	// create the deployable on the hub
-	dpl := mcPodDeployable.DeepCopy()
-	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl)
+	// create the manifestWork on the hub
+	mw := mcPodManifestWork.DeepCopy()
+	mwUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(mw)
 	uc = &unstructured.Unstructured{}
-	uc.SetUnstructuredContent(dplUC)
-	uc.SetGroupVersionKind(deployableGVK)
-	deployablegvr := explorer.GVKGVRMap[deployableGVK]
-	if _, err := hubDynamicClient.Resource(deployablegvr).Namespace(dpl.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
+	uc.SetUnstructuredContent(mwUC)
+	uc.SetGroupVersionKind(manifestworkGVK)
+	manifestWorkgvr := explorer.GVKGVRMap[manifestworkGVK]
+	if _, err := hubDynamicClient.Resource(manifestWorkgvr).Namespace(mw.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.Name, metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Delete(context.TODO(), mw.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
 	}()
 
-	if _, err := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), mcPodDeployable.Name, metav1.GetOptions{}); err != nil {
+	if _, err := hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Get(context.TODO(), mcPodManifestWork.Name, metav1.GetOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
-	// wait for the deployable sync to come through on hub
-	<-ds.(DeployableSync).createCh
-	<-ds.(DeployableSync).updateCh
+	// wait for the manifestWork sync to come through on hub
+	<-ds.(ManifestWorkSync).createCh
+	<-ds.(ManifestWorkSync).updateCh
 
-	hubDep, err := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), mcPodDeployable.Name, metav1.GetOptions{})
+	hubMw, err := hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Get(context.TODO(), mcPodManifestWork.Name, metav1.GetOptions{})
 
-	g.Expect(hubDep.GetKind()).To(Equal("Deployable"))
+	g.Expect(hubMw.GetKind()).To(Equal("ManifestWork"))
 
-	// Check that the template points to the service, not a pod
+	// Check that the manifestwork points to the service, not a pod
 
-	ucdep, err := runtime.DefaultUnstructuredConverter.ToUnstructured(hubDep)
-	kind, found, err := unstructured.NestedString(ucdep, "spec", "template", "kind")
+	ucMw, err := runtime.DefaultUnstructuredConverter.ToUnstructured(hubMw)
+
+	manifests, found, err := unstructured.NestedSlice(ucMw, "spec", "workload", "manifests")
 	if !found || err != nil {
-		klog.Error("Cannot get the wrapped object kind for deployable ", hubDep.GetNamespace()+"/"+hubDep.GetName())
+		klog.Error("Cannot get manifests from manifestwork ", hubMw.GetNamespace()+"/"+hubMw.GetName())
+		t.Fail()
+	}
+	manifest, ok := manifests[0].(map[string]interface{})
+	if !ok {
+		klog.Error("Cannot get manifest from manifestwork ", hubMw.GetNamespace()+"/"+hubMw.GetName())
 		t.Fail()
 	}
 
-	name, found, err := unstructured.NestedString(ucdep, "spec", "template", "metadata", "name")
+	kind, found, err := unstructured.NestedString(manifest, "kind")
 	if !found || err != nil {
-		klog.Error("Cannot get the wrapped object name for deployable ", hubDep.GetNamespace()+"/"+hubDep.GetName())
+		klog.Error("Cannot get the wrapped object kind for manifestwork ", hubMw.GetNamespace()+"/"+hubMw.GetName())
 		t.Fail()
 	}
 
-	namespace, found, err := unstructured.NestedString(ucdep, "spec", "template", "metadata", "namespace")
+	name, found, err := unstructured.NestedString(manifest, "metadata", "name")
 	if !found || err != nil {
-		klog.Error("Cannot get the wrapped object namespace for deployable ", hubDep.GetNamespace()+"/"+hubDep.GetName())
+		klog.Error("Cannot get the wrapped object name for manifestWork ", hubMw.GetNamespace()+"/"+hubMw.GetName())
+		t.Fail()
+	}
+
+	namespace, found, err := unstructured.NestedString(manifest, "metadata", "namespace")
+	if !found || err != nil {
+		klog.Error("Cannot get the wrapped object namespace for manifestWork ", hubMw.GetNamespace()+"/"+hubMw.GetName())
 		t.Fail()
 	}
 
@@ -401,7 +432,7 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
-	ds := SetupDeployableSync(rec)
+	ds := SetupManifestWorkSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
@@ -437,35 +468,35 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 		}
 	}()
 
-	// create the deployable on the hub
-	dpl := mcSTSDeployable.DeepCopy()
-	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl)
+	// create the manifestWork on the hub
+	mw := mcSTSManifestWork.DeepCopy()
+	mwUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(mw)
 	uc = &unstructured.Unstructured{}
-	uc.SetUnstructuredContent(dplUC)
-	uc.SetGroupVersionKind(deployableGVK)
+	uc.SetUnstructuredContent(mwUC)
+	uc.SetGroupVersionKind(manifestworkGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.Name, metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Delete(context.TODO(), mw.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
 	}()
 
-	// wait for the deployable sync to come through on hub
-	<-ds.(DeployableSync).createCh
-	<-ds.(DeployableSync).updateCh
+	// wait for the manifestWork sync to come through on hub
+	<-ds.(ManifestWorkSync).createCh
+	<-ds.(ManifestWorkSync).updateCh
 
 	// remove the object subscription anno
-	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), dpl.Name, metav1.GetOptions{})
+	newMw, _ := hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Get(context.TODO(), mw.Name, metav1.GetOptions{})
 	newSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 
 	stsAnnotations := newSTS.GetAnnotations()
-	delete(stsAnnotations, dplv1.AnnotationHosting)
+	delete(stsAnnotations, corev1alpha1.AnnotationHosting)
 	delete(stsAnnotations, subv1.AnnotationHosting)
 	delete(stsAnnotations, subv1.AnnotationSyncSource)
 	newSTS.SetAnnotations(stsAnnotations)
@@ -474,19 +505,19 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 		t.Fail()
 	}
 
-	dplAnnotations := newDpl.GetAnnotations()
-	dplAnnotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
-	newDpl.SetAnnotations(dplAnnotations)
+	mwAnnotations := newMw.GetAnnotations()
+	mwAnnotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
+	newMw.SetAnnotations(mwAnnotations)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(context.TODO(), newDpl, metav1.UpdateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Update(context.TODO(), newMw, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
-	<-ds.(DeployableSync).updateCh
+	<-ds.(ManifestWorkSync).updateCh
 
 	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 	annotations := updatedSTS.GetAnnotations()
-	g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(dpl.Namespace + "/" + dpl.Name))
+	g.Expect(annotations[corev1alpha1.AnnotationHosting]).To(Equal(mw.Namespace + "/" + mw.Name))
 	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
 	g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
 }
@@ -501,7 +532,7 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
-	ds := SetupDeployableSync(rec)
+	ds := SetupManifestWorkSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
@@ -537,35 +568,35 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 		}
 	}()
 
-	// create the deployable on the hub
-	dpl := mcSTSDeployable.DeepCopy()
-	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl)
+	// create the manifestWork on the hub
+	mw := mcSTSManifestWork.DeepCopy()
+	mwUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(mw)
 	uc = &unstructured.Unstructured{}
-	uc.SetUnstructuredContent(dplUC)
-	uc.SetGroupVersionKind(deployableGVK)
+	uc.SetUnstructuredContent(mwUC)
+	uc.SetGroupVersionKind(manifestworkGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.Name, metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Delete(context.TODO(), mw.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
 	}()
 
-	// wait for the deployable sync to come through on hub
-	<-ds.(DeployableSync).createCh
-	<-ds.(DeployableSync).updateCh
+	// wait for the manifestWork sync to come through on hub
+	<-ds.(ManifestWorkSync).createCh
+	<-ds.(ManifestWorkSync).updateCh
 
 	// remove the object subscription anno
-	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Get(context.TODO(), dpl.Name, metav1.GetOptions{})
+	newMw, _ := hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Get(context.TODO(), mw.Name, metav1.GetOptions{})
 	newSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 
 	stsAnnotations := newSTS.GetAnnotations()
-	delete(stsAnnotations, dplv1.AnnotationHosting)
+	delete(stsAnnotations, corev1alpha1.AnnotationHosting)
 	delete(stsAnnotations, subv1.AnnotationHosting)
 	delete(stsAnnotations, subv1.AnnotationSyncSource)
 	newSTS.SetAnnotations(stsAnnotations)
@@ -574,10 +605,10 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 		t.Fail()
 	}
 
-	dplAnnotations := newDpl.GetAnnotations()
-	newDpl.SetAnnotations(dplAnnotations)
+	mwAnnotations := newMw.GetAnnotations()
+	newMw.SetAnnotations(mwAnnotations)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Update(context.TODO(), newDpl, metav1.UpdateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Update(context.TODO(), newMw, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
@@ -585,7 +616,7 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	// discovery flag has been turned into completed from enabled, so no changes on the resource expected
 	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 	annotations := updatedSTS.GetAnnotations()
-	g.Expect(annotations[dplv1.AnnotationHosting]).To(BeEmpty())
+	g.Expect(annotations[corev1alpha1.AnnotationHosting]).To(BeEmpty())
 	g.Expect(annotations[subv1.AnnotationHosting]).To(BeEmpty())
 	g.Expect(annotations[subv1.AnnotationSyncSource]).To(BeEmpty())
 }
@@ -600,7 +631,7 @@ func TestRefreshOwnershipChange(t *testing.T) {
 
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
-	ds := SetupDeployableSync(rec)
+	ds := SetupManifestWorkSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
@@ -636,60 +667,60 @@ func TestRefreshOwnershipChange(t *testing.T) {
 		}
 	}()
 
-	// create the deployable on the hub
-	dpl1 := mcSTSDeployable.DeepCopy()
-	dpl1UC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl1)
+	// create the manifestwork on the hub
+	mw1 := mcSTSManifestWork.DeepCopy()
+	mw1UC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(mw1)
 	uc1 := &unstructured.Unstructured{}
-	uc1.SetUnstructuredContent(dpl1UC)
-	uc1.SetGroupVersionKind(deployableGVK)
+	uc1.SetUnstructuredContent(mw1UC)
+	uc1.SetGroupVersionKind(manifestworkGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl1.Namespace).Create(context.TODO(), uc1, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw1.Namespace).Create(context.TODO(), uc1, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl1.Namespace).Delete(context.TODO(), dpl1.Name, metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw1.Namespace).Delete(context.TODO(), mw1.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
 	}()
 
-	// wait for the deployable sync to come through on hub
-	<-ds.(DeployableSync).createCh
-	<-ds.(DeployableSync).updateCh
+	// wait for the manifestwork sync to come through on hub
+	<-ds.(ManifestWorkSync).createCh
+	<-ds.(ManifestWorkSync).updateCh
 
-	// create a new deployable pointing to the same resource
-	dpl2 := mcSTSDeployable.DeepCopy()
-	dpl2.SetName(mcSTSName + "2")
-	dpl2UC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dpl2)
+	// create a new manifestwork pointing to the same resource
+	mw2 := mcSTSManifestWork.DeepCopy()
+	mw2.SetName(mcSTSName + "2")
+	mw2UC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(mw2)
 	uc2 := &unstructured.Unstructured{}
-	uc2.SetUnstructuredContent(dpl2UC)
-	uc2.SetGroupVersionKind(deployableGVK)
+	uc2.SetUnstructuredContent(mw2UC)
+	uc2.SetGroupVersionKind(manifestworkGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl2.Namespace).Create(context.TODO(), uc2, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw2.Namespace).Create(context.TODO(), uc2, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
 	defer func() {
-		if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl2.Namespace).Delete(context.TODO(), dpl2.Name, metav1.DeleteOptions{}); err != nil {
+		if err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw2.Namespace).Delete(context.TODO(), mw2.Name, metav1.DeleteOptions{}); err != nil {
 			klog.Error(err)
 			t.Fail()
 		}
 	}()
 
-	// wait for the deployable sync to come through on hub
-	<-ds.(DeployableSync).createCh
+	// wait for the manifestwork sync to come through on hub
+	<-ds.(ManifestWorkSync).createCh
 
 	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 	annotations := updatedSTS.GetAnnotations()
-	g.Expect(annotations[dplv1.AnnotationHosting]).To(Equal(dpl1.Namespace + "/" + dpl1.Name))
+	g.Expect(annotations[corev1alpha1.AnnotationHosting]).To(Equal(mw1.Namespace + "/" + mw1.Name))
 	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
 	g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
 }
 
-func TestSyncDeployable(t *testing.T) {
+func TestSyncManifestWork(t *testing.T) {
 	g := NewWithT(t)
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
@@ -702,7 +733,7 @@ func TestSyncDeployable(t *testing.T) {
 
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
-	ds := SetupDeployableSync(rec)
+	ds := SetupManifestWorkSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
@@ -738,39 +769,39 @@ func TestSyncDeployable(t *testing.T) {
 		}
 	}()
 
-	err = SyncDeployable(uc, explorer)
+	err = SyncManifestWork(uc, explorer)
 	g.Expect(err).ShouldNot(HaveOccurred())
 
-	dplList, _ := hubDynamicClient.Resource(deployableGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
-	g.Expect(dplList.Items).To(HaveLen(1))
+	mwList, _ := hubDynamicClient.Resource(manifestworkGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
+	g.Expect(mwList.Items).To(HaveLen(1))
 
-	dpl, _ := locateDeployableForObject(uc, explorer)
-	g.Expect(dpl).NotTo(BeNil())
+	mw, _ := locateManifestWorkForObject(uc, explorer)
+	g.Expect(mw).NotTo(BeNil())
 
-	err = SyncDeployable(uc, explorer)
+	err = SyncManifestWork(uc, explorer)
 	g.Expect(err).ShouldNot(HaveOccurred())
 
-	// sync again and expect existing deployable to be ignored
+	// sync again and expect existing manifestwork to be ignored
 	uc, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), uc.GetName(), metav1.GetOptions{})
 	if err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
-	err = SyncDeployable(uc, explorer)
+	err = SyncManifestWork(uc, explorer)
 	g.Expect(err).ShouldNot(HaveOccurred())
 
-	dplList, _ = hubDynamicClient.Resource(deployableGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
-	g.Expect(dplList.Items).To(HaveLen(1))
+	mwList, _ = hubDynamicClient.Resource(manifestworkGVR).Namespace(mcName).List(context.TODO(), metav1.ListOptions{})
+	g.Expect(mwList.Items).To(HaveLen(1))
 
-	if err = hubDynamicClient.Resource(deployableGVR).Namespace(dpl.Namespace).Delete(context.TODO(), dpl.GetName(), metav1.DeleteOptions{}); err != nil {
+	if err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mw.Namespace).Delete(context.TODO(), mw.GetName(), metav1.DeleteOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
-	<-ds.(DeployableSync).deleteCh
+	<-ds.(ManifestWorkSync).deleteCh
 }
 
-func TestDeployableCleanup(t *testing.T) {
+func TestManifestWorkCleanup(t *testing.T) {
 	g := NewWithT(t)
 	mgr, err := manager.New(managedClusterConfig, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
@@ -783,7 +814,7 @@ func TestDeployableCleanup(t *testing.T) {
 
 	rec, _ := NewReconciler(mgr, hubClusterConfig, mcName, explorer)
 
-	ds := SetupDeployableSync(rec)
+	ds := SetupManifestWorkSync(rec)
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
@@ -812,21 +843,21 @@ func TestDeployableCleanup(t *testing.T) {
 		t.Fail()
 	}
 
-	// create the deployable on the hub
-	dplObj := mcSTSDeployable.DeepCopy()
-	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dplObj)
+	// create the manifestwork on the hub
+	mwObj := mcSTSManifestWork.DeepCopy()
+	mwUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(mwObj)
 	uc = &unstructured.Unstructured{}
-	uc.SetUnstructuredContent(dplUC)
-	uc.SetGroupVersionKind(deployableGVK)
+	uc.SetUnstructuredContent(mwUC)
+	uc.SetGroupVersionKind(manifestworkGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mwObj.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
 
-	// wait for the deployable sync to come through on hub
-	<-ds.(DeployableSync).createCh
-	<-ds.(DeployableSync).updateCh
+	// wait for the manifestwork sync to come through on hub
+	<-ds.(ManifestWorkSync).createCh
+	<-ds.(ManifestWorkSync).updateCh
 
 	// delete the sts
 	if err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Delete(context.TODO(), sts.Name, metav1.DeleteOptions{}); err != nil {
@@ -834,20 +865,20 @@ func TestDeployableCleanup(t *testing.T) {
 		t.Fail()
 	}
 
-	// trigger reconciliation on deployable and make sure it gets cleaned up
-	newDpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Get(context.TODO(), dplObj.Name, metav1.GetOptions{})
-	dplAnnotations := newDpl.GetAnnotations()
-	dplAnnotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
-	newDpl.SetAnnotations(dplAnnotations)
+	// trigger reconciliation on manifestwork and make sure it gets cleaned up
+	newMw, _ := hubDynamicClient.Resource(manifestworkGVR).Namespace(mwObj.Namespace).Get(context.TODO(), mwObj.Name, metav1.GetOptions{})
+	mwAnnotations := newMw.GetAnnotations()
+	mwAnnotations[hdplv1alpha1.AnnotationHybridDiscovery] = hdplv1alpha1.HybridDiscoveryEnabled
+	newMw.SetAnnotations(mwAnnotations)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(newDpl.GetNamespace()).Update(context.TODO(), newDpl, metav1.UpdateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(manifestworkGVR).Namespace(newMw.GetNamespace()).Update(context.TODO(), newMw, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}
-	<-ds.(DeployableSync).updateCh
-	dpl, _ := hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Get(context.TODO(), dplObj.Name, metav1.GetOptions{})
+	<-ds.(ManifestWorkSync).updateCh
+	mw, _ := hubDynamicClient.Resource(manifestworkGVR).Namespace(mwObj.Namespace).Get(context.TODO(), mwObj.Name, metav1.GetOptions{})
 
-	g.Expect(dpl).To(BeNil())
+	g.Expect(mw).To(BeNil())
 }
 
 func TestGenericControllerReconcile(t *testing.T) {
@@ -873,13 +904,13 @@ func TestGenericControllerReconcile(t *testing.T) {
 	}()
 
 	rec.Start()
-	dplObj := mcSTSDeployable.DeepCopy()
-	dplUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(dplObj)
+	mwObj := mcSTSManifestWork.DeepCopy()
+	mwUC, _ := runtime.DefaultUnstructuredConverter.ToUnstructured(mwObj)
 	uc := &unstructured.Unstructured{}
-	uc.SetUnstructuredContent(dplUC)
-	uc.SetGroupVersionKind(deployableGVK)
+	uc.SetUnstructuredContent(mwUC)
+	uc.SetGroupVersionKind(manifestworkGVK)
 
-	if _, err = hubDynamicClient.Resource(deployableGVR).Namespace(dplObj.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
+	if _, err = hubDynamicClient.Resource(manifestworkGVR).Namespace(mwObj.Namespace).Create(context.TODO(), uc, metav1.CreateOptions{}); err != nil {
 		klog.Error(err)
 		t.Fail()
 	}

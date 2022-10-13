@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deployable
+package manifestwork
 
+// extra comment
 import (
 	"context"
 	"time"
@@ -30,29 +31,28 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	workapiv1 "github.com/open-cluster-management/api/work/v1"
 
 	hdplv1alpha1 "github.com/hybridapp-io/ham-deployable-operator/pkg/apis/core/v1alpha1"
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 )
 
 var (
-	resync        = 20 * time.Minute
-	deployableGVK = schema.GroupVersionKind{
-		Group:   dplv1.SchemeGroupVersion.Group,
-		Version: dplv1.SchemeGroupVersion.Version,
-		Kind:    "Deployable",
+	resync          = 20 * time.Minute
+	manifestworkGVK = schema.GroupVersionKind{
+		Group:   workapiv1.SchemeGroupVersion.Group,
+		Version: workapiv1.SchemeGroupVersion.Version,
+		Kind:    "ManifestWork",
 	}
 
-	deployableGVR = schema.GroupVersionResource{
-		Group:    dplv1.SchemeGroupVersion.Group,
-		Version:  dplv1.SchemeGroupVersion.Version,
-		Resource: "deployables",
+	manifestworkGVR = schema.GroupVersionResource{
+		Group:    workapiv1.SchemeGroupVersion.Group,
+		Version:  workapiv1.SchemeGroupVersion.Version,
+		Resource: "manifestworks",
 	}
 )
 
 func Add(mgr manager.Manager, hubconfig *rest.Config, clusterName string) error {
-
 	explorer, err := utils.InitExplorer(hubconfig, mgr.GetConfig(), clusterName)
 	if err != nil {
 		klog.Error("Failed to initialize the explorer")
@@ -69,35 +69,35 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, clusterName string) error 
 }
 
 func NewReconciler(mgr manager.Manager, hubconfig *rest.Config, clusterName string,
-	explorer *utils.Explorer) (*ReconcileDeployable, error) {
+	explorer *utils.Explorer) (*ReconcileManifestWork, error) {
 	var dynamicHubFactory = dynamicinformer.NewFilteredDynamicSharedInformerFactory(explorer.DynamicHubClient, resync,
 		clusterName, nil)
-	reconciler := &ReconcileDeployable{
+	reconciler := &ReconcileManifestWork{
 		Explorer:          explorer,
 		DynamicHubFactory: dynamicHubFactory,
 	}
 	return reconciler, nil
 }
 
-// blank assignment to verify that ReconcileDeployer implements ReconcileDeployableInterface
-var _ ReconcileDeployableInterface = &ReconcileDeployable{}
+// blank assignment to verify that ReconcileManifestWork implements ReconcileManifestWorkInterface
+var _ ReconcileManifestWorkInterface = &ReconcileManifestWork{}
 
-type ReconcileDeployableInterface interface {
+type ReconcileManifestWorkInterface interface {
 	Start()
-	SyncCreateDeployable(obj interface{})
-	SyncUpdateDeployable(old interface{}, new interface{})
-	SyncRemoveDeployable(obj interface{})
+	SyncCreateManifestWork(obj interface{})
+	SyncUpdateManifestWork(old interface{}, new interface{})
+	SyncRemoveManifestWork(obj interface{})
 	Stop()
 }
 
-// ReconcileDeployable reconciles a Deployable object
-type ReconcileDeployable struct {
+// ReconcileManifestWork reconciles a ManifestWork object
+type ReconcileManifestWork struct {
 	Explorer          *utils.Explorer
 	DynamicHubFactory dynamicinformer.DynamicSharedInformerFactory
 	StopCh            chan struct{}
 }
 
-func (r *ReconcileDeployable) Start() {
+func (r *ReconcileManifestWork) Start() {
 	if r.DynamicHubFactory == nil {
 		return
 	}
@@ -107,23 +107,23 @@ func (r *ReconcileDeployable) Start() {
 
 	handler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
-			r.SyncCreateDeployable(new)
+			r.SyncCreateManifestWork(new)
 		},
 		UpdateFunc: func(old, new interface{}) {
-			r.SyncUpdateDeployable(old, new)
+			r.SyncUpdateManifestWork(old, new)
 		},
 		DeleteFunc: func(old interface{}) {
-			r.SyncRemoveDeployable(old)
+			r.SyncRemoveManifestWork(old)
 		},
 	}
 
-	r.DynamicHubFactory.ForResource(deployableGVR).Informer().AddEventHandler(handler)
+	r.DynamicHubFactory.ForResource(manifestworkGVR).Informer().AddEventHandler(handler)
 
 	r.StopCh = make(chan struct{})
 	r.DynamicHubFactory.Start(r.StopCh)
 }
 
-func (r *ReconcileDeployable) Stop() {
+func (r *ReconcileManifestWork) Stop() {
 	if r.StopCh != nil {
 		r.DynamicHubFactory.WaitForCacheSync(r.StopCh)
 		close(r.StopCh)
@@ -131,28 +131,28 @@ func (r *ReconcileDeployable) Stop() {
 	r.StopCh = nil
 }
 
-func (r *ReconcileDeployable) SyncCreateDeployable(obj interface{}) {
+func (r *ReconcileManifestWork) SyncCreateManifestWork(obj interface{}) {
 	metaobj, err := meta.Accessor(obj)
 	if err != nil {
 		klog.Error("Failed to access object metadata for sync with error: ", err)
 		return
 	}
 
-	//reconcile only deployables in the cluster namespace
+	//reconcile only manifestworks in the cluster namespace
 	if metaobj.GetNamespace() != r.Explorer.ClusterName {
 		return
 	}
 
-	// exit if deployable does not have the hybrid-discovered annotation
+	// exit if manifestwork does not have the hybrid-discovered annotation
 	if annotation, ok := metaobj.GetAnnotations()[hdplv1alpha1.AnnotationHybridDiscovery]; !ok ||
 		annotation != hdplv1alpha1.HybridDiscoveryEnabled {
 		return
 	}
 
-	r.syncDeployable(metaobj)
+	r.syncManifestWork(metaobj)
 }
 
-func (r *ReconcileDeployable) SyncUpdateDeployable(oldObj, newObj interface{}) {
+func (r *ReconcileManifestWork) SyncUpdateManifestWork(oldObj, newObj interface{}) {
 
 	metaNew, err := meta.Accessor(newObj)
 	if err != nil {
@@ -163,7 +163,7 @@ func (r *ReconcileDeployable) SyncUpdateDeployable(oldObj, newObj interface{}) {
 		return
 	}
 
-	// exit if deployable does not have the hybrid-discovered annotation
+	// exit if manifestwork does not have the hybrid-discovered annotation
 	if annotation, ok := metaNew.GetAnnotations()[hdplv1alpha1.AnnotationHybridDiscovery]; !ok ||
 		annotation != hdplv1alpha1.HybridDiscoveryEnabled {
 		return
@@ -178,14 +178,14 @@ func (r *ReconcileDeployable) SyncUpdateDeployable(oldObj, newObj interface{}) {
 	ucOld := oldObj.(*unstructured.Unstructured)
 	oldSpec, _, err := unstructured.NestedMap(ucOld.Object, "spec")
 	if err != nil {
-		klog.Error("Failed to retrieve deployable spec with error: ", err)
+		klog.Error("Failed to retrieve manifestwork spec with error: ", err)
 		return
 	}
 
 	ucNew := newObj.(*unstructured.Unstructured)
 	newSpec, _, err := unstructured.NestedMap(ucNew.Object, "spec")
 	if err != nil {
-		klog.Error("Failed to retrieve deployable spec with error: ", err)
+		klog.Error("Failed to retrieve manifestwork spec with error: ", err)
 		return
 	}
 
@@ -194,36 +194,37 @@ func (r *ReconcileDeployable) SyncUpdateDeployable(oldObj, newObj interface{}) {
 		equality.Semantic.DeepEqual(oldSpec, newSpec) {
 		return
 	}
-	r.syncDeployable(metaNew)
+	r.syncManifestWork(metaNew)
 }
 
-func (r *ReconcileDeployable) SyncRemoveDeployable(obj interface{}) {}
+func (r *ReconcileManifestWork) SyncRemoveManifestWork(obj interface{}) {}
 
-func (r *ReconcileDeployable) syncDeployable(metaobj metav1.Object) {
+func (r *ReconcileManifestWork) syncManifestWork(metaobj metav1.Object) {
 
-	tpl, err := locateObjectForDeployable(metaobj, r.Explorer)
+	tpl, err := locateObjectForManifestWork(metaobj, r.Explorer)
 	if err != nil {
-		klog.Error("Failed to retrieve the wrapped object for deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName()+" with error: ", err)
+		klog.Error("Failed to retrieve the wrapped object for manifestwork ", metaobj.GetNamespace()+"/"+metaobj.GetName()+" with error: ", err)
 		return
 	}
 	if tpl == nil {
-		klog.Info("Cleaning up orphaned deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName())
-		// remove deployable from hub
-		err = r.Explorer.DynamicHubClient.Resource(deployableGVR).Namespace(metaobj.GetNamespace()).Delete(context.TODO(), metaobj.GetName(), metav1.DeleteOptions{})
+		klog.Info("Cleaning up orphaned manifestwork ", metaobj.GetNamespace()+"/"+metaobj.GetName())
+		// remove manifestwork from hub
+		err = r.Explorer.DynamicHubClient.Resource(manifestworkGVR).Namespace(metaobj.GetNamespace()).
+			Delete(context.TODO(), metaobj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
-			klog.Error("Failed to delete orphaned deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName())
+			klog.Error("Failed to delete orphaned manifestwork ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 		}
 		return
 	}
 
-	dpl := &dplv1.Deployable{}
-	err = runtime.DefaultUnstructuredConverter.FromUnstructured(metaobj.(*unstructured.Unstructured).Object, dpl)
+	mw := &workapiv1.ManifestWork{}
+	err = runtime.DefaultUnstructuredConverter.FromUnstructured(metaobj.(*unstructured.Unstructured).Object, mw)
 	if err != nil {
-		klog.Error("Cannot convert unstructured to deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName()+" with error: ", err)
+		klog.Error("Cannot convert unstructured to manifestwork ", metaobj.GetNamespace()+"/"+metaobj.GetName()+" with error: ", err)
 		return
 	}
-	if err = updateDeployableAndObject(dpl, tpl, r.Explorer); err != nil {
-		klog.Error("Cannot update deployable ", metaobj.GetNamespace()+"/"+metaobj.GetName()+" with error: ", err)
+	if err = updateManifestWorkAndObject(mw, tpl, r.Explorer); err != nil {
+		klog.Error("Cannot update manifestwork ", metaobj.GetNamespace()+"/"+metaobj.GetName()+" with error: ", err)
 		return
 	}
 }

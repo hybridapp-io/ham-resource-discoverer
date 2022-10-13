@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package deployable
+package manifestwork
 
 import (
 	"log"
@@ -81,36 +81,36 @@ func TestMain(m *testing.M) {
 
 const waitgroupDelta = 1
 
-type DeployableSync struct {
-	*ReconcileDeployable
+type ManifestWorkSync struct {
+	*ReconcileManifestWork
 	createCh chan interface{}
 	updateCh chan interface{}
 	deleteCh chan interface{}
 }
 
-func (ds DeployableSync) Start() {
+func (ds ManifestWorkSync) Start() {
 	ds.Stop()
 	// generic explorer
 	ds.StopCh = make(chan struct{})
 	handler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(new interface{}) {
-			ds.SyncCreateDeployable(new)
+			ds.SyncCreateManifestWork(new)
 		},
 		UpdateFunc: func(old, new interface{}) {
-			ds.SyncUpdateDeployable(old, new)
+			ds.SyncUpdateManifestWork(old, new)
 		},
 		DeleteFunc: func(old interface{}) {
-			ds.SyncRemoveDeployable(old)
+			ds.SyncRemoveManifestWork(old)
 		},
 	}
 
-	ds.DynamicHubFactory.ForResource(deployableGVR).Informer().AddEventHandler(handler)
+	ds.DynamicHubFactory.ForResource(manifestworkGVR).Informer().AddEventHandler(handler)
 
 	ds.StopCh = make(chan struct{})
 	ds.DynamicHubFactory.Start(ds.StopCh)
 }
 
-func (ds DeployableSync) Stop() {
+func (ds ManifestWorkSync) Stop() {
 	if ds.StopCh != nil {
 		ds.DynamicHubFactory.WaitForCacheSync(ds.StopCh)
 		close(ds.StopCh)
@@ -118,8 +118,8 @@ func (ds DeployableSync) Stop() {
 	ds.StopCh = nil
 }
 
-func (ds DeployableSync) SyncCreateDeployable(newObj interface{}) {
-	ds.ReconcileDeployable.SyncCreateDeployable(newObj)
+func (ds ManifestWorkSync) SyncCreateManifestWork(newObj interface{}) {
+	ds.ReconcileManifestWork.SyncCreateManifestWork(newObj)
 	// non-blocking operation
 	select {
 	case ds.createCh <- newObj:
@@ -127,8 +127,8 @@ func (ds DeployableSync) SyncCreateDeployable(newObj interface{}) {
 	}
 
 }
-func (ds DeployableSync) SyncUpdateDeployable(oldObj, newObj interface{}) {
-	ds.ReconcileDeployable.SyncUpdateDeployable(oldObj, newObj)
+func (ds ManifestWorkSync) SyncUpdateManifestWork(oldObj, newObj interface{}) {
+	ds.ReconcileManifestWork.SyncUpdateManifestWork(oldObj, newObj)
 	// non-blocking operation
 	select {
 	case ds.updateCh <- newObj:
@@ -136,8 +136,8 @@ func (ds DeployableSync) SyncUpdateDeployable(oldObj, newObj interface{}) {
 	}
 
 }
-func (ds DeployableSync) SyncRemoveDeployable(oldObj interface{}) {
-	ds.ReconcileDeployable.SyncRemoveDeployable(oldObj)
+func (ds ManifestWorkSync) SyncRemoveManifestWork(oldObj interface{}) {
+	ds.ReconcileManifestWork.SyncRemoveManifestWork(oldObj)
 	// non-blocking operation
 	select {
 	case ds.deleteCh <- oldObj:
@@ -146,18 +146,18 @@ func (ds DeployableSync) SyncRemoveDeployable(oldObj interface{}) {
 
 }
 
-func SetupDeployableSync(inner *ReconcileDeployable) ReconcileDeployableInterface {
+func SetupManifestWorkSync(inner *ReconcileManifestWork) ReconcileManifestWorkInterface {
 	cCh := make(chan interface{}, 5)
 	uCh := make(chan interface{}, 5)
 	dCh := make(chan interface{}, 5)
 
-	dplSync := DeployableSync{
-		ReconcileDeployable: inner,
-		createCh:            cCh,
-		updateCh:            uCh,
-		deleteCh:            dCh,
+	mwSync := ManifestWorkSync{
+		ReconcileManifestWork: inner,
+		createCh:              cCh,
+		updateCh:              uCh,
+		deleteCh:              dCh,
 	}
-	return dplSync
+	return mwSync
 }
 
 // StartTestManager adds recFn
