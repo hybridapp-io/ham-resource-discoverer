@@ -33,7 +33,6 @@ import (
 	"github.com/hybridapp-io/ham-resource-discoverer/pkg/utils"
 
 	workapiv1 "github.com/open-cluster-management/api/work/v1"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var (
@@ -283,8 +282,8 @@ func TestNoGroupObject(t *testing.T) {
 	newSVC, _ := mcDynamicClient.Resource(svcGVR).Namespace(svc.Namespace).Get(context.TODO(), svc.Name, metav1.GetOptions{})
 	annotations := newSVC.GetAnnotations()
 	g.Expect(annotations[corev1alpha1.AnnotationHosting]).To(Equal(mw.Namespace + "/" + mw.Name))
-	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
-	g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
+	g.Expect(annotations[corev1alpha1.AnnotationHostingSubscription]).To(Equal("/"))
+	g.Expect(annotations[corev1alpha1.AnnotationSyncSourceSubscription]).To(Equal("subnsdpl-/"))
 }
 
 func TestObjectWithOwnerReference(t *testing.T) {
@@ -497,8 +496,8 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 
 	stsAnnotations := newSTS.GetAnnotations()
 	delete(stsAnnotations, corev1alpha1.AnnotationHosting)
-	delete(stsAnnotations, subv1.AnnotationHosting)
-	delete(stsAnnotations, subv1.AnnotationSyncSource)
+	delete(stsAnnotations, corev1alpha1.AnnotationHostingSubscription)
+	delete(stsAnnotations, corev1alpha1.AnnotationSyncSourceSubscription)
 	newSTS.SetAnnotations(stsAnnotations)
 	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Update(context.TODO(), newSTS, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
@@ -518,8 +517,8 @@ func TestRefreshObjectWithDiscovery(t *testing.T) {
 	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 	annotations := updatedSTS.GetAnnotations()
 	g.Expect(annotations[corev1alpha1.AnnotationHosting]).To(Equal(mw.Namespace + "/" + mw.Name))
-	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
-	g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
+	g.Expect(annotations[corev1alpha1.AnnotationHostingSubscription]).To(Equal("/"))
+	g.Expect(annotations[corev1alpha1.AnnotationSyncSourceSubscription]).To(Equal("subnsdpl-/"))
 }
 
 func TestRefreshObjectWithoutDiscovery(t *testing.T) {
@@ -597,8 +596,8 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 
 	stsAnnotations := newSTS.GetAnnotations()
 	delete(stsAnnotations, corev1alpha1.AnnotationHosting)
-	delete(stsAnnotations, subv1.AnnotationHosting)
-	delete(stsAnnotations, subv1.AnnotationSyncSource)
+	delete(stsAnnotations, corev1alpha1.AnnotationHostingSubscription)
+	delete(stsAnnotations, corev1alpha1.AnnotationSyncSourceSubscription)
 	newSTS.SetAnnotations(stsAnnotations)
 	if _, err = mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Update(context.TODO(), newSTS, metav1.UpdateOptions{}); err != nil {
 		klog.Error(err)
@@ -617,8 +616,8 @@ func TestRefreshObjectWithoutDiscovery(t *testing.T) {
 	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 	annotations := updatedSTS.GetAnnotations()
 	g.Expect(annotations[corev1alpha1.AnnotationHosting]).To(BeEmpty())
-	g.Expect(annotations[subv1.AnnotationHosting]).To(BeEmpty())
-	g.Expect(annotations[subv1.AnnotationSyncSource]).To(BeEmpty())
+	g.Expect(annotations[corev1alpha1.AnnotationHostingSubscription]).To(BeEmpty())
+	g.Expect(annotations[corev1alpha1.AnnotationSyncSourceSubscription]).To(BeEmpty())
 }
 
 func TestRefreshOwnershipChange(t *testing.T) {
@@ -716,8 +715,8 @@ func TestRefreshOwnershipChange(t *testing.T) {
 	updatedSTS, _ := mcDynamicClient.Resource(stsGVR).Namespace(sts.Namespace).Get(context.TODO(), sts.Name, metav1.GetOptions{})
 	annotations := updatedSTS.GetAnnotations()
 	g.Expect(annotations[corev1alpha1.AnnotationHosting]).To(Equal(mw1.Namespace + "/" + mw1.Name))
-	g.Expect(annotations[subv1.AnnotationHosting]).To(Equal("/"))
-	g.Expect(annotations[subv1.AnnotationSyncSource]).To(Equal("subnsdpl-/"))
+	g.Expect(annotations[corev1alpha1.AnnotationHostingSubscription]).To(Equal("/"))
+	g.Expect(annotations[corev1alpha1.AnnotationSyncSourceSubscription]).To(Equal("subnsdpl-/"))
 }
 
 func TestSyncManifestWork(t *testing.T) {

@@ -34,6 +34,10 @@ var (
 
 	AnnotationHosting = SchemeGroupVersion.Group + "/" + PropertyHostingDeployable
 
+	AnnotationHostingSubscription = SchemeGroupVersion.Group + "/hosting-subscription"
+
+	AnnotationSyncSourceSubscription = SchemeGroupVersion.Group + "/sync-source"
+
 	AnnotationManagedCluster = SchemeGroupVersion.Group + "/managed-cluster"
 
 	AnnotationLocal = SchemeGroupVersion.Group + "/is-local-deployable"
