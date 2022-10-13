@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	corev1alpha1 "github.com/hybridapp-io/ham-resource-discoverer/pkg/apis/core/v1alpha1"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -115,8 +114,8 @@ func PatchManagedClusterObject(explorer *Explorer, dpl *unstructured.Unstructure
 		annotations = make(map[string]string)
 	}
 
-	annotations[subv1.AnnotationHosting] = "/"
-	annotations[subv1.AnnotationSyncSource] = "subnsdpl-/"
+	annotations[corev1alpha1.AnnotationHostingSubscription] = "/"
+	annotations[corev1alpha1.AnnotationSyncSourceSubscription] = "subnsdpl-/"
 	annotations[corev1alpha1.AnnotationHosting] = types.NamespacedName{Namespace: dpl.GetNamespace(), Name: dpl.GetName()}.String()
 
 	ucobj.SetAnnotations(annotations)
@@ -130,6 +129,6 @@ func PatchManagedClusterObject(explorer *Explorer, dpl *unstructured.Unstructure
 func GetHostingAnnotations() []string {
 	return []string{
 		corev1alpha1.AnnotationHosting,
-		subv1.AnnotationHosting,
+		corev1alpha1.AnnotationHostingSubscription,
 	}
 }
