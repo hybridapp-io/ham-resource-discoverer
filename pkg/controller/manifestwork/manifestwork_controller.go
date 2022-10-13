@@ -209,7 +209,8 @@ func (r *ReconcileManifestWork) syncManifestWork(metaobj metav1.Object) {
 	if tpl == nil {
 		klog.Info("Cleaning up orphaned manifestwork ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 		// remove manifestwork from hub
-		err = r.Explorer.DynamicHubClient.Resource(manifestworkGVR).Namespace(metaobj.GetNamespace()).Delete(context.TODO(), metaobj.GetName(), metav1.DeleteOptions{})
+		err = r.Explorer.DynamicHubClient.Resource(manifestworkGVR).Namespace(metaobj.GetNamespace()).
+			Delete(context.TODO(), metaobj.GetName(), metav1.DeleteOptions{})
 		if err != nil {
 			klog.Error("Failed to delete orphaned manifestwork ", metaobj.GetNamespace()+"/"+metaobj.GetName())
 		}
