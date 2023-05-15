@@ -1,6 +1,6 @@
 module github.com/hybridapp-io/ham-resource-discoverer
 
-go 1.17
+go 1.20
 
 require (
 	github.com/hybridapp-io/ham-deployable-operator v0.0.0-20221013200407-5313fd1b16c0
