@@ -189,7 +189,7 @@ Spec:
 Events:      <none>
 $ kubectl get virtualmachines
 NAME       AGE
-frontend   23m
+frontend   22m
 $ kubectl get deployables -n toronto
 NAME                               TEMPLATE-KIND    TEMPLATE-APIVERSION          AGE     STATUS
 cloudform-default-frontend-xlclx   VirtualMachine   cloudform.ibm.com/v1alpha1   3m40s
