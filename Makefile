@@ -21,7 +21,7 @@ BUILD_LOCALLY ?= 1
 # Image URL to use all building/pushing image targets;
 # Use your own docker registry and image name for dev/test by overridding the
 # IMAGE_REPO, IMAGE_NAME and RELEASE_TAG environment variable.
-IMAGE_REPO ?= quay.io/hybridappio
+IMAGE_REPO ?= quay.io/cicdtest
 IMAGE_NAME ?= ham-resource-discoverer
 
 # Github host to use for checking the source tree;
