@@ -169,7 +169,7 @@ Kind:         DeployerSet
 Metadata:
   Creation Timestamp:  2020-02-03T22:50:57Z
   Generation:          2
-  Resource Version:    12415203
+  Resource Version:    12415204
   Self Link:           /apis/app.ibm.com/v1alpha1/namespaces/toronto/deployersets/toronto
   UID:                 a3a9e3af-46d7-11ea-9dba-00000a101bb8
 Spec:
