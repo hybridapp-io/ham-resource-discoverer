@@ -11,13 +11,18 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [What is the Hybrid Deployable Operator](#what-is-the-hybrid-deployable-operator)
-- [Community, discussion, contribution, and support](#community-discussion-contribution-and-support)
-- [Getting Started](#getting-started)
+- [Deployer Operator](#deployer-operator)
+  - [What is the Deployer Operator](#what-is-the-deployer-operator)
+  - [Community, discussion, contribution, and support](#community-discussion-contribution-and-support)
+  - [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
     - [Quick Start](#quick-start)
+      - [Clone Deployer Operator Repository](#clone-deployer-operator-repository)
+      - [Build Deployer Operator](#build-deployer-operator)
+      - [Install Deployer Operator](#install-deployer-operator)
+      - [Test Deployer Operator](#test-deployer-operator)
+  - [Deploy Workloads](#deploy-workloads)
     - [Troubleshooting](#troubleshooting)
-- [Hybrid Application References](#hybrid-application-references)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -162,7 +167,7 @@ Annotations:  <none>
 API Version:  app.ibm.com/v1alpha1
 Kind:         DeployerSet
 Metadata:
-  Creation Timestamp:  2020-02-03T22:50:56Z
+  Creation Timestamp:  2020-02-03T22:50:57Z
   Generation:          2
   Resource Version:    12415203
   Self Link:           /apis/app.ibm.com/v1alpha1/namespaces/toronto/deployersets/toronto
